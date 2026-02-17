@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "document-anonymizer"
+version = "0.1.0"
+description = "Privacy-first document anonymization tool with German PII detection"
+requires-python = ">=3.12"
+license = "MIT"
+readme = "README.md"
+authors = [{ name = "Document Anonymizer Contributors" }]
+keywords = ["anonymization", "pii", "gdpr", "german", "redaction", "privacy", "presidio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Text Processing",
+]
+dependencies = [
+    "fastapi>=0.129",
+    "uvicorn[standard]>=0.41",
+    "structlog>=25.5",
+    "presidio-analyzer>=2.2",
+    "presidio-anonymizer>=2.2",
+    "spacy>=3.7",
+    "PyMuPDF>=1.27",
+    "faker>=40.0",
+    "python-magic>=0.4",
+    "pydantic-settings>=2.13",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.22",
+]
+
+[project.urls]
+Repository = "https://github.com/JuliusScheuerer/document-anonymizer"
+Documentation = "https://github.com/JuliusScheuerer/document-anonymizer#readme"
+Issues = "https://github.com/JuliusScheuerer/document-anonymizer/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-cov>=7.0",
+    "ruff>=0.15",
+    "mypy>=1.19",
+    "pre-commit>=4.0",
+    "bandit[toml]>=1.9",
+    "httpx>=0.28",
+    "hypothesis>=6.151",
+    "pytest-randomly>=4.0",
+    "de-core-news-lg @ https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.8.0/de_core_news_lg-3.8.0-py3-none-any.whl",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/document_anonymizer"]
+
+# ── Ruff ───────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "S",    # flake8-bandit
+    "T20",  # flake8-print (no print statements)
+    "PTH",  # flake8-use-pathlib
+    "LOG",  # flake8-logging
+    "TRY",  # tryceratops
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "RUF",  # ruff-specific rules
+    "ERA",  # eradicate (commented-out code)
+    "ARG",  # flake8-unused-arguments
+    "TCH",  # flake8-type-checking
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG001", "ARG002"]
+
+# ── Mypy ───────────────────────────────────────────────
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "fitz"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "magic"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "presidio_analyzer.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "presidio_anonymizer.*"
+ignore_missing_imports = true
+
+# ── Pytest ─────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "-p", "no:faker",
+    "--randomly-dont-reset-seed",
+    "-m",
+    "not integration and not e2e and not property",
+]
+markers = [
+    "integration: integration tests (deselect with '-m \"not integration\"')",
+    "e2e: end-to-end tests",
+    "property: property-based tests",
+]
+
+# ── Coverage ───────────────────────────────────────────
+
+[tool.coverage.run]
+source = ["document_anonymizer"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+
+# ── Bandit ─────────────────────────────────────────────
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+severity = "medium"

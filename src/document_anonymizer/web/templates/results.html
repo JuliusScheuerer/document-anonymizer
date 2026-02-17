@@ -1,0 +1,93 @@
+<div class="space-y-6">
+    <!-- Detection Summary -->
+    <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="text-lg font-semibold">Erkennungsergebnisse</h2>
+            <div class="text-sm text-gray-500">
+                {{ entity_count }} Entit&auml;t{{ "en" if entity_count != 1 else "" }} gefunden
+                &middot; {{ processing_time_ms }} ms
+            </div>
+        </div>
+
+        {% if entities %}
+        <!-- Highlighted Text Preview -->
+        <div class="mb-4">
+            <h3 class="text-sm font-medium text-gray-600 mb-1">Erkannte PII im Text</h3>
+            <div class="bg-gray-50 rounded p-3 font-mono text-sm whitespace-pre-wrap break-words">{{ highlighted_text | safe }}</div>
+        </div>
+
+        <!-- Entity Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-gray-200 text-left">
+                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Typ</th>
+                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Erkannter Text</th>
+                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Konfidenz</th>
+                        <th scope="col" class="py-2 font-medium text-gray-600">Position</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entity in entities %}
+                    <tr class="border-b border-gray-100">
+                        <td class="py-2 pr-4">
+                            <span class="entity-badge entity-{{ entity.entity_type | lower | replace('_', '-') }}">
+                                {{ entity.entity_type }}
+                            </span>
+                        </td>
+                        <td class="py-2 pr-4 font-mono text-sm">{{ entity.text }}</td>
+                        <td class="py-2 pr-4">
+                            <div class="flex items-center gap-2">
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: {{ (entity.score * 100) | int }}%"></div>
+                                </div>
+                                <span>{{ entity.score }}</span>
+                            </div>
+                        </td>
+                        <td class="py-2 text-gray-500">{{ entity.start }}&ndash;{{ entity.end }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-4">Keine PII-Entit&auml;ten erkannt.</p>
+        {% endif %}
+    </div>
+
+    {% if entities %}
+    <!-- Anonymization Form -->
+    <div class="bg-white rounded-lg border border-gray-200 p-4">
+        <h2 class="text-lg font-semibold mb-3">Anonymisieren</h2>
+        <form action="/anonymize-form" method="post" hx-post="/anonymize-form" hx-target="#anonymized-output" hx-indicator="#anon-loading"> <!-- nosemgrep: python.django.security.django-no-csrf-token -->
+            <input type="hidden" name="text" value="{{ original_text }}">
+            <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
+            <input type="hidden" name="is_pdf" value="{{ is_pdf }}">
+            <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
+
+            <div class="flex items-end gap-4">
+                <div>
+                    <label for="strategy" class="block text-sm font-medium text-gray-700 mb-1">Strategie</label>
+                    <select id="strategy" name="strategy" class="input-field">
+                        <option value="replace">Replace ([PERSON], [IBAN], ...)</option>
+                        <option value="fake">Fake (realistische deutsche Daten)</option>
+                        <option value="mask">Mask (teilweise verdecken)</option>
+                        <option value="hash">Hash (SHA-256 Pseudonymisierung)</option>
+                        <option value="redact">Redact (komplett entfernen)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    Anonymisieren
+                </button>
+            </div>
+        </form>
+
+        <div id="anon-loading" class="htmx-indicator text-center py-4">
+            <div class="spinner"></div>
+            <p class="text-sm text-gray-500 mt-2">Anonymisiere...</p>
+        </div>
+
+        <div id="anonymized-output" class="mt-4"></div>
+    </div>
+    {% endif %}
+</div>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <meta name="referrer" content="no-referrer">
+    <meta name="description" content="Datenschutzkonforme Dokumentenanonymisierung mit deutscher PII-Erkennung. Zero-Persistence-Architektur.">
+    <meta property="og:title" content="Document Anonymizer">
+    <meta property="og:description" content="Privacy-first document anonymization with German PII detection">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128274;</text></svg>">
+    <title>{% block title %}Document Anonymizer{% endblock %}</title>
+    <script src="/static/js/htmx.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <noscript><style>.htmx-indicator{display:none!important}</style></noscript>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-4 header-row">
+            <a href="/" class="flex items-center gap-2 text-lg font-semibold text-gray-800 no-underline">
+                <span class="text-2xl">&#128274;</span>
+                Document Anonymizer
+            </a>
+            <span class="text-sm text-gray-500">German PII Detection &amp; Redaction</span>
+        </div>
+    </header>
+
+    <noscript>
+        <div class="max-w-5xl mx-auto px-4 py-4">
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p class="text-sm text-red-800">JavaScript ist f&uuml;r die interaktive Oberfl&auml;che erforderlich. Bitte aktivieren Sie JavaScript oder nutzen Sie die <a href="/docs">REST API</a>.</p>
+            </div>
+        </div>
+    </noscript>
+
+    <main class="max-w-5xl mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-gray-200 mt-12">
+        <div class="max-w-5xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
+            Zero-persistence architecture &middot; No external API calls &middot; Physical PDF redaction
+        </div>
+    </footer>
+</body>
+</html>

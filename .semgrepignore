@@ -1,0 +1,6 @@
+# Jinja2 templates — not Django. Semgrep's django-no-csrf-token rule
+# is a false positive for FastAPI/Jinja2 projects.
+src/document_anonymizer/web/templates/
+
+# Vendored third-party JavaScript (htmx) — not our code to fix.
+src/document_anonymizer/web/static/js/
