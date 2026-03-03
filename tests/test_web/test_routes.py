@@ -178,7 +178,6 @@ class TestRedactPdf:
 
         r = client.post(
             "/redact-pdf",
-            headers=_HTMX_HEADERS,
             data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
         )
         assert r.status_code == 200
@@ -207,7 +206,6 @@ class TestRedactPdf:
         fake_b64 = base64.b64encode(b"not a pdf").decode()
         r = client.post(
             "/redact-pdf",
-            headers=_HTMX_HEADERS,
             data={"pdf_b64": fake_b64, "score_threshold": "0.35"},
         )
         assert r.status_code == 400
