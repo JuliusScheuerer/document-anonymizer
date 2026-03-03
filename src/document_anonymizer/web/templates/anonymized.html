@@ -29,7 +29,7 @@
             Text kopieren
         </button>
         {% if is_pdf and pdf_b64 %}
-        <form method="post" action="/redact-pdf" class="inline"> <!-- nosemgrep: python.django.security.django-no-csrf-token -->
+        <form method="post" action="/redact-pdf" class="inline">
             <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
             <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
             <button type="submit" class="btn btn-primary text-sm">
