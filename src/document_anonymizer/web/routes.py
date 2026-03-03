@@ -46,6 +46,18 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 web_router = APIRouter(tags=["web"])
 
 
+async def _require_htmx_header(request: Request) -> None:
+    """CSRF protection: require HX-Request header on POST endpoints.
+
+    HTMX sends this header automatically. Cross-origin forms cannot set
+    custom headers, so this blocks CSRF attacks without needing tokens.
+    """
+    if request.method == "POST" and not request.headers.get("HX-Request"):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="Missing required header")
+
+
 @web_router.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     """Main page with upload/paste interface."""
@@ -56,7 +68,11 @@ async def index(request: Request) -> HTMLResponse:
 _MAX_TEXT_LENGTH = 100_000
 
 
-@web_router.post("/detect", response_class=HTMLResponse)
+@web_router.post(
+    "/detect",
+    response_class=HTMLResponse,
+    dependencies=[Depends(_require_htmx_header)],
+)
 async def detect_form(
     request: Request,
     text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
@@ -140,7 +156,11 @@ async def detect_form(
         )
 
 
-@web_router.post("/anonymize-form", response_class=HTMLResponse)
+@web_router.post(
+    "/anonymize-form",
+    response_class=HTMLResponse,
+    dependencies=[Depends(_require_htmx_header)],
+)
 async def anonymize_form(
     request: Request,
     text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
@@ -205,7 +225,7 @@ async def anonymize_form(
         )
 
 
-@web_router.post("/redact-pdf")
+@web_router.post("/redact-pdf", dependencies=[Depends(_require_htmx_header)])
 async def redact_pdf_form(
     request: Request,
     pdf_b64: str = Form(...),
