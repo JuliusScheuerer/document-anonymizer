@@ -18,6 +18,7 @@ from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
 from document_anonymizer.api.dependencies import get_analyzer, get_anonymizer
 from document_anonymizer.document.pdf_handler import (
+    IncompleteRedactionError,
     extract_text_from_pdf,
     redact_pdf,
 )
@@ -224,6 +225,20 @@ async def redact_pdf_form(
             "error_fragment.html",
             {"error": str(e)},
             status_code=400,
+        )
+    except IncompleteRedactionError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {
+                "error": (
+                    f"Unvollständige Schwärzung: {e.unredacted_count} von "
+                    f"{e.total_count} erkannten PII-Entitäten konnten im PDF "
+                    f"nicht visuell lokalisiert werden. "
+                    f"Manuelle Überprüfung empfohlen."
+                ),
+            },
+            status_code=422,
         )
     except Exception:
         logger.exception("redact_pdf_error")

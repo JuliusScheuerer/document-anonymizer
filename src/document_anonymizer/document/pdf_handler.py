@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import fitz
+import structlog
 
 from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
@@ -18,6 +19,11 @@ from document_anonymizer.document.text_handler import detect_pii_in_text
 
 if TYPE_CHECKING:
     from presidio_analyzer import AnalyzerEngine, RecognizerResult
+
+logger = structlog.get_logger(__name__)
+
+# Maximum pages to process (defense against DoS via large PDFs)
+MAX_PDF_PAGES = 200
 
 
 @dataclass
@@ -31,6 +37,19 @@ class PdfDetection:
     rect: fitz.Rect
 
 
+class IncompleteRedactionError(Exception):
+    """Raised when some detected PII could not be located for redaction."""
+
+    def __init__(self, unredacted_count: int, total_count: int) -> None:
+        self.unredacted_count = unredacted_count
+        self.total_count = total_count
+        super().__init__(
+            f"{unredacted_count} of {total_count} detected PII entities "
+            f"could not be visually located for redaction. "
+            f"Manual review recommended."
+        )
+
+
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extract all text from a PDF document.
 
@@ -42,7 +61,14 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         pages = []
-        for page in doc:
+        for i, page in enumerate(doc):
+            if i >= MAX_PDF_PAGES:
+                logger.warning(
+                    "pdf_page_limit_reached",
+                    max_pages=MAX_PDF_PAGES,
+                    total_pages=len(doc),
+                )
+                break
             pages.append(page.get_text())
         return "\n".join(pages)
 
@@ -62,6 +88,9 @@ def detect_pii_in_pdf(
         detections: list[PdfDetection] = []
 
         for page_num, page in enumerate(doc):
+            if page_num >= MAX_PDF_PAGES:
+                break
+
             page_text = page.get_text()
             if not page_text.strip():
                 continue
@@ -98,6 +127,9 @@ def redact_pdf(
     Uses PyMuPDF's add_redact_annot() + apply_redactions() which removes
     text from the content stream. Also scrubs document metadata.
 
+    Raises IncompleteRedactionError if any detected PII cannot be
+    visually located for redaction.
+
     Args:
         analyzer: Presidio AnalyzerEngine.
         pdf_bytes: Raw PDF file content.
@@ -109,8 +141,18 @@ def redact_pdf(
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         all_detections: list[PdfDetection] = []
+        total_entities = 0
+        unredacted_entities = 0
 
         for page_num, page in enumerate(doc):
+            if page_num >= MAX_PDF_PAGES:
+                logger.warning(
+                    "pdf_redaction_page_limit_reached",
+                    max_pages=MAX_PDF_PAGES,
+                    total_pages=len(doc),
+                )
+                break
+
             page_text = page.get_text()
             if not page_text.strip():
                 continue
@@ -120,8 +162,19 @@ def redact_pdf(
             )
 
             for result in results:
+                total_entities += 1
                 pii_text = page_text[result.start : result.end]
                 rects = page.search_for(pii_text)
+
+                if not rects:
+                    unredacted_entities += 1
+                    logger.warning(
+                        "pii_redaction_miss",
+                        entity_type=result.entity_type,
+                        page=page_num,
+                        score=round(result.score, 3),
+                    )
+                    continue
 
                 for rect in rects:
                     all_detections.append(
@@ -138,6 +191,9 @@ def redact_pdf(
 
             # Apply all redactions on this page
             page.apply_redactions()
+
+        if unredacted_entities > 0:
+            raise IncompleteRedactionError(unredacted_entities, total_entities)
 
         # Scrub document metadata
         doc.set_metadata({})
