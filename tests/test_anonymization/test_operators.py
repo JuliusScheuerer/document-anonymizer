@@ -59,7 +59,6 @@ class TestFakeIdCardGenerator:
             assert result[9] == str(expected_check)
 
 
-
 class TestFakeOperator:
     def test_known_entity_type(self) -> None:
         op = FakeOperator()
