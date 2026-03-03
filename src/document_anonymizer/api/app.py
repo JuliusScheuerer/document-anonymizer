@@ -1,6 +1,8 @@
 """FastAPI application with security middleware and API routes."""
 
 import importlib.metadata
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
@@ -19,12 +21,29 @@ logger = structlog.get_logger(__name__)
 
 _VERSION = importlib.metadata.version("document-anonymizer")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
+    """Eagerly load the analyzer engine on startup to fail fast."""
+    from document_anonymizer.api.dependencies import get_analyzer
+
+    logger.info("startup", action="loading_analyzer_engine")
+    try:
+        get_analyzer()
+        logger.info("startup", action="analyzer_engine_ready")
+    except Exception:
+        logger.exception("startup_failed", action="analyzer_engine_load")
+        raise
+    yield
+
+
 app = FastAPI(
     title="document-anonymizer",
     description="Privacy-first document anonymization tool with German PII detection",
     version=_VERSION,
     docs_url="/docs",
     redoc_url=None,
+    lifespan=lifespan,
     openapi_tags=[
         {
             "name": "anonymization",
@@ -58,9 +77,19 @@ app.include_router(web_router)
 
 
 @app.get("/health")
-async def health() -> HealthResponse:
+async def health() -> HealthResponse | JSONResponse:
     """Health check endpoint — verifies dependencies are loaded."""
-    return check_health()
+    result = check_health()
+    if result.status != "ok":
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": result.status,
+                "version": result.version,
+                "analyzer_ready": result.analyzer_ready,
+            },
+        )
+    return result
 
 
 def mount_static_files() -> None:

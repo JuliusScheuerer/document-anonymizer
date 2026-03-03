@@ -34,8 +34,13 @@ def check_health() -> HealthResponse:
 
         get_analyzer()
         response.analyzer_ready = True
-    except Exception:
-        logger.warning("health_check_failed", component="analyzer")
+    except Exception as exc:
+        logger.warning(
+            "health_check_failed",
+            component="analyzer",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
         response.status = "degraded"
 
     return response
