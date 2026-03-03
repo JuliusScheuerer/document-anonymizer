@@ -38,11 +38,21 @@ class PdfDetection:
 
 
 class IncompleteRedactionError(Exception):
-    """Raised when some detected PII could not be located for redaction."""
+    """Raised when some detected PII could not be located for redaction.
 
-    def __init__(self, unredacted_count: int, total_count: int) -> None:
+    The partial_pdf attribute contains the PDF with successful redactions
+    applied, so the caller can still offer it with a warning.
+    """
+
+    def __init__(
+        self,
+        unredacted_count: int,
+        total_count: int,
+        partial_pdf: bytes | None = None,
+    ) -> None:
         self.unredacted_count = unredacted_count
         self.total_count = total_count
+        self.partial_pdf = partial_pdf
         super().__init__(
             f"{unredacted_count} of {total_count} detected PII entities "
             f"could not be visually located for redaction. "
@@ -192,14 +202,16 @@ def redact_pdf(
             # Apply all redactions on this page
             page.apply_redactions()
 
-        if unredacted_entities > 0:
-            raise IncompleteRedactionError(unredacted_entities, total_entities)
-
         # Scrub document metadata
         doc.set_metadata({})
 
         # Save with garbage collection to remove unreferenced objects
         redacted_bytes = doc.tobytes(garbage=4, deflate=True)
+
+        if unredacted_entities > 0:
+            raise IncompleteRedactionError(
+                unredacted_entities, total_entities, partial_pdf=redacted_bytes
+            )
 
     return redacted_bytes, all_detections
 
