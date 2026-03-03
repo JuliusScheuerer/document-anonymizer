@@ -1,6 +1,10 @@
 """Tests for custom Presidio operators (fake data generators)."""
 
-from document_anonymizer.anonymization.operators import _fake_id_card, _fake_steuer_id
+from document_anonymizer.anonymization.operators import (
+    FakeOperator,
+    _fake_id_card,
+    _fake_steuer_id,
+)
 
 
 class TestFakeSteuerIdGenerator:
@@ -53,3 +57,35 @@ class TestFakeIdCardGenerator:
                 total += value * weights[i]
             expected_check = total % 10
             assert result[9] == str(expected_check)
+
+
+class TestFakeOperator:
+    def test_known_entity_type(self) -> None:
+        op = FakeOperator()
+        result = op.operate("Max Mustermann", params={"entity_type": "PERSON"})
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_unknown_entity_type_falls_back_to_name(self) -> None:
+        op = FakeOperator()
+        result = op.operate("something", params={"entity_type": "UNKNOWN_TYPE"})
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    def test_no_params_falls_back_to_name(self) -> None:
+        op = FakeOperator()
+        result = op.operate("something", params=None)
+        assert isinstance(result, str)
+
+    def test_custom_generator_types(self) -> None:
+        """Verify callable generators (Steuer-ID, ID card, Handelsregister)."""
+        op = FakeOperator()
+        for entity_type in ["DE_TAX_ID", "DE_ID_CARD", "DE_HANDELSREGISTER"]:
+            result = op.operate("x", params={"entity_type": entity_type})
+            assert isinstance(result, str)
+            assert len(result) > 0
+
+    def test_operator_metadata(self) -> None:
+        op = FakeOperator()
+        assert op.operator_name() == "fake"
+        op.validate()  # Should not raise
