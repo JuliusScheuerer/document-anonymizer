@@ -26,6 +26,7 @@ from document_anonymizer.document.text_handler import detect_pii_in_text
 from document_anonymizer.security.validation import (
     FileValidationError,
     validate_file_content,
+    validate_pdf_structure,
 )
 
 logger = structlog.get_logger(__name__)
@@ -79,6 +80,12 @@ async def detect_form(
             )
 
         if mime_type == "application/pdf":
+            try:
+                validate_pdf_structure(content)
+            except FileValidationError as e:
+                return templates.TemplateResponse(
+                    request, "error_fragment.html", {"error": str(e)}
+                )
             text = extract_text_from_pdf(content)
             is_pdf = True
             pdf_b64 = base64.b64encode(content).decode()
