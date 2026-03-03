@@ -5,10 +5,10 @@ from typing import ClassVar
 from presidio_analyzer import Pattern, PatternRecognizer
 
 # International format: +49 followed by area code and number
-_INTL_PATTERN = r"\+49\s?\(?\d{2,4}\)?\s?\d{3,8}[\s-]?\d{0,5}"
+_INTL_PATTERN = r"\+49\s?\(?\d{2,4}\)?\s?\d{3,8}(?:[\s-]?\d{1,5})?\b"
 
-# Domestic format: 0 + area code + number
-_DOMESTIC_PATTERN = r"\b0\d{2,4}[\s/-]?\d{3,8}[\s/-]?\d{0,5}\b"
+# Domestic format: 0 + area code + number (minimum 7 total digits)
+_DOMESTIC_PATTERN = r"\b0\d{2,4}[\s/-]?\d{3,8}[\s/-]?\d{1,5}\b"
 
 # Mobile format: +49 1xx or 01xx
 _MOBILE_PATTERN = r"(?:\+49\s?|0)1[567]\d[\s/-]?\d{3,4}[\s/-]?\d{3,4}"

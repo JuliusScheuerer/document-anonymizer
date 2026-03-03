@@ -72,7 +72,7 @@ class GermanTaxRecognizer(PatternRecognizer):
             Pattern(
                 "steuernummer",
                 _STEUERNUMMER_PATTERN,
-                0.4,
+                0.3,  # Below default threshold; requires context words
             ),
         ]
         super().__init__(
