@@ -93,9 +93,6 @@ def detect_pii_in_pdf(
         detections: list[PdfDetection] = []
 
         for page_num, page in enumerate(doc):
-            if page_num >= MAX_PDF_PAGES:
-                break
-
             page_text = page.get_text()
             if not page_text.strip():
                 continue
@@ -153,14 +150,6 @@ def redact_pdf(
         unredacted_entities = 0
 
         for page_num, page in enumerate(doc):
-            if page_num >= MAX_PDF_PAGES:
-                logger.warning(
-                    "pdf_redaction_page_limit_reached",
-                    max_pages=MAX_PDF_PAGES,
-                    total_pages=len(doc),
-                )
-                break
-
             page_text = page.get_text()
             if not page_text.strip():
                 continue
