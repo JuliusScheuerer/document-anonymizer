@@ -1,5 +1,6 @@
 """Custom Presidio operators for German PII anonymization."""
 
+import random
 from typing import Any
 
 from faker import Faker
@@ -7,15 +8,53 @@ from presidio_anonymizer.operators import Operator, OperatorType
 
 _FAKER = Faker("de_DE")
 
+_ID_CARD_LETTERS = "CFGHJKLMNPRTVWXYZ"
+_ID_CARD_ALPHANUM = _ID_CARD_LETTERS + "0123456789"
+
 
 def _fake_steuer_id() -> str:
-    """Generate a fake 11-digit Steuer-ID."""
-    return _FAKER.numerify("##########" + "#")
+    """Generate a fake 11-digit Steuer-ID with valid structure.
+
+    Rules: no leading zero, exactly one digit appears twice
+    in the first 10 positions, all others appear at most once.
+    """
+    # Pick one digit to repeat (appears twice)
+    repeat_digit = str(random.randint(0, 9))  # noqa: S311  # nosec B311
+    # Build first 10 digits: 8 unique + 1 repeated
+    available = [str(d) for d in range(10) if str(d) != repeat_digit]
+    random.shuffle(available)
+    digits = [*available[:8], repeat_digit, repeat_digit]
+    random.shuffle(digits)
+    # Ensure no leading zero
+    if digits[0] == "0":
+        for i in range(1, len(digits)):
+            if digits[i] != "0":
+                digits[0], digits[i] = digits[i], digits[0]
+                break
+    # 11th digit is a check digit placeholder (0-9)
+    digits.append(str(random.randint(0, 9)))  # noqa: S311  # nosec B311
+    return "".join(digits)
 
 
 def _fake_id_card() -> str:
-    """Generate a fake German ID card number (9 alphanumeric chars)."""
-    return _FAKER.bothify("?########").upper()
+    """Generate a fake German ID card number (10 chars) with valid check digit.
+
+    Format: 1 restricted letter + 8 alphanumeric + 1 check digit.
+    Uses weights 7, 3, 1 repeating; letters mapped via ord(c) - 55.
+    """
+    first = random.choice(_ID_CARD_LETTERS)  # noqa: S311  # nosec B311
+    middle = "".join(random.choice(_ID_CARD_ALPHANUM) for _ in range(8))  # noqa: S311  # nosec B311
+    body = first + middle
+
+    # Compute check digit
+    weights = [7, 3, 1, 7, 3, 1, 7, 3, 1]
+    total = 0
+    for i, char in enumerate(body):
+        value = int(char) if char.isdigit() else ord(char) - 55
+        total += value * weights[i]
+    check = total % 10
+
+    return body + str(check)
 
 
 def _fake_handelsregister() -> str:

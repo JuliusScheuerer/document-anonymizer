@@ -1,10 +1,11 @@
 """Web frontend routes serving Jinja2 templates."""
 
 import base64
+import binascii
 import html
 import time
 from pathlib import Path
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 import structlog
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -17,6 +18,8 @@ from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
 from document_anonymizer.api.dependencies import get_analyzer, get_anonymizer
 from document_anonymizer.document.pdf_handler import (
+    IncompleteRedactionError,
+    PdfPageLimitExceededError,
     extract_text_from_pdf,
     redact_pdf,
 )
@@ -24,6 +27,7 @@ from document_anonymizer.document.text_handler import detect_pii_in_text
 from document_anonymizer.security.validation import (
     FileValidationError,
     validate_file_content,
+    validate_pdf_structure,
 )
 
 logger = structlog.get_logger(__name__)
@@ -43,6 +47,18 @@ templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 web_router = APIRouter(tags=["web"])
 
 
+async def _require_htmx_header(request: Request) -> None:
+    """CSRF protection: require HX-Request header on POST endpoints.
+
+    HTMX sends this header automatically. Cross-origin forms cannot set
+    custom headers, so this blocks CSRF attacks without needing tokens.
+    """
+    if request.method == "POST" and not request.headers.get("HX-Request"):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=403, detail="Missing required header")
+
+
 @web_router.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> HTMLResponse:
     """Main page with upload/paste interface."""
@@ -50,11 +66,18 @@ async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "index.html", {"strategies": strategies})
 
 
-@web_router.post("/detect", response_class=HTMLResponse)
+_MAX_TEXT_LENGTH = 100_000
+
+
+@web_router.post(
+    "/detect",
+    response_class=HTMLResponse,
+    dependencies=[Depends(_require_htmx_header)],
+)
 async def detect_form(
     request: Request,
-    text: str = Form(default=""),
-    score_threshold: float = Form(default=0.35),
+    text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     file: UploadFile | None = File(default=None),  # noqa: B008
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> HTMLResponse:
@@ -74,7 +97,17 @@ async def detect_form(
             )
 
         if mime_type == "application/pdf":
-            text = extract_text_from_pdf(content)
+            try:
+                validate_pdf_structure(content)
+                text = extract_text_from_pdf(content)
+            except FileValidationError as e:
+                return templates.TemplateResponse(
+                    request, "error_fragment.html", {"error": str(e)}
+                )
+            except PdfPageLimitExceededError as e:
+                return templates.TemplateResponse(
+                    request, "error_fragment.html", {"error": str(e)}
+                )
             is_pdf = True
             pdf_b64 = base64.b64encode(content).decode()
         else:
@@ -128,12 +161,16 @@ async def detect_form(
         )
 
 
-@web_router.post("/anonymize-form", response_class=HTMLResponse)
+@web_router.post(
+    "/anonymize-form",
+    response_class=HTMLResponse,
+    dependencies=[Depends(_require_htmx_header)],
+)
 async def anonymize_form(
     request: Request,
-    text: str = Form(...),
+    text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
     strategy: str = Form(default="replace"),
-    score_threshold: float = Form(default=0.35),
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     is_pdf: bool = Form(default=False),
     pdf_b64: str = Form(default=""),
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
@@ -195,30 +232,61 @@ async def anonymize_form(
 
 @web_router.post("/redact-pdf")
 async def redact_pdf_form(
-    request: Request,  # noqa: ARG001
+    request: Request,
     pdf_b64: str = Form(...),
-    score_threshold: float = Form(default=0.35),
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> Response:
     """Handle PDF redaction — returns redacted PDF for download."""
     try:
         pdf_bytes = base64.b64decode(pdf_b64)
         validate_file_content(pdf_bytes)
+        validate_pdf_structure(pdf_bytes)
         redacted_bytes, _ = redact_pdf(
             analyzer, pdf_bytes, score_threshold=score_threshold
         )
-    except FileValidationError as e:
-        return Response(
-            content=str(e),
+    except binascii.Error:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": "Ungültige PDF-Daten. Bitte laden Sie die Datei erneut hoch."},
             status_code=400,
-            media_type="text/plain",
+        )
+    except FileValidationError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": str(e)},
+            status_code=400,
+        )
+    except PdfPageLimitExceededError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": str(e)},
+            status_code=400,
+        )
+    except IncompleteRedactionError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {
+                "error": (
+                    f"Unvollständige Schwärzung: {e.unredacted_count} von "
+                    f"{e.total_count} erkannten PII-Entitäten konnten im PDF "
+                    f"nicht visuell lokalisiert werden. "
+                    f"Manuelle Überprüfung empfohlen."
+                ),
+            },
+            status_code=422,
         )
     except Exception:
         logger.exception("redact_pdf_error")
-        return Response(
-            content="PDF-Schwärzung fehlgeschlagen.",
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": "PDF-Schwärzung fehlgeschlagen."},
             status_code=500,
-            media_type="text/plain",
         )
 
     return Response(
@@ -232,13 +300,14 @@ def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
     """Build HTML with color-coded PII highlights.
 
     Escapes the full text first, then inserts <mark> tags at
-    offset-adjusted positions to prevent XSS.
+    offset-adjusted positions to prevent XSS. Overlapping entities
+    are merged (the first span wins, overlapping spans are skipped).
     """
     if not entities:
         return html.escape(text)
 
-    # Sort by start position (ascending) for left-to-right processing
-    sorted_entities = sorted(entities, key=lambda e: e["start"])
+    # Sort by start position, then by longest span first for ties
+    sorted_entities = sorted(entities, key=lambda e: (e["start"], -e["end"]))
 
     parts: list[str] = []
     last_end = 0
@@ -246,6 +315,11 @@ def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
     for entity in sorted_entities:
         start = entity["start"]
         end = entity["end"]
+
+        # Skip entities that overlap with the previous one
+        if start < last_end:
+            continue
+
         entity_type = entity["entity_type"]
         score = entity["score"]
 

@@ -84,7 +84,6 @@ class AnonymizeRequest(BaseModel):
 class AnonymizeResponse(BaseModel):
     """Response from anonymization."""
 
-    original_text: str
     anonymized_text: str = Field(
         examples=["Herr [PERSON], geboren am [DATUM], wohnhaft in [ADRESSE]."],
     )

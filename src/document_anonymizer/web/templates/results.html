@@ -59,7 +59,7 @@
     <!-- Anonymization Form -->
     <div class="bg-white rounded-lg border border-gray-200 p-4">
         <h2 class="text-lg font-semibold mb-3">Anonymisieren</h2>
-        <form action="/anonymize-form" method="post" hx-post="/anonymize-form" hx-target="#anonymized-output" hx-indicator="#anon-loading"> <!-- nosemgrep: python.django.security.django-no-csrf-token -->
+        <form action="/anonymize-form" method="post" hx-post="/anonymize-form" hx-target="#anonymized-output" hx-indicator="#anon-loading">
             <input type="hidden" name="text" value="{{ original_text }}">
             <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
             <input type="hidden" name="is_pdf" value="{{ is_pdf }}">

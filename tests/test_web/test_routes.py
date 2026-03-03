@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 from document_anonymizer.api.app import app
 
+# HTMX sends HX-Request header; our CSRF protection requires it on POSTs
+_HTMX_HEADERS = {"HX-Request": "true"}
 client = TestClient(app)
 
 
@@ -31,6 +33,7 @@ class TestDetectForm:
     def test_detect_returns_results(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann, IBAN DE89 3704 0044 0532 0130 00",
                 "score_threshold": "0.35",
@@ -42,6 +45,7 @@ class TestDetectForm:
     def test_detect_empty_text_error(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"text": "", "score_threshold": "0.35"},
         )
         assert r.status_code == 200
@@ -50,6 +54,7 @@ class TestDetectForm:
     def test_detect_highlights_entities(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "IBAN: DE89 3704 0044 0532 0130 00",
                 "score_threshold": "0.35",
@@ -61,6 +66,7 @@ class TestDetectForm:
         """Verify XSS in text input is escaped."""
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": '<script>alert("xss")</script> Max Mustermann',
                 "score_threshold": "0.35",
@@ -73,6 +79,7 @@ class TestDetectForm:
     def test_detect_with_file_upload(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"score_threshold": "0.35", "text": ""},
             files={"file": ("test.txt", b"Herr Max Mustermann", "text/plain")},
         )
@@ -87,6 +94,7 @@ class TestDetectForm:
 
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"score_threshold": "0.35", "text": ""},
             files={"file": ("test.pdf", pdf_bytes, "application/pdf")},
         )
@@ -97,6 +105,7 @@ class TestAnonymizeForm:
     def test_anonymize_returns_diff(self) -> None:
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann",
                 "strategy": "replace",
@@ -112,6 +121,7 @@ class TestAnonymizeForm:
         for strategy in ["replace", "fake", "mask", "hash", "redact"]:
             r = client.post(
                 "/anonymize-form",
+                headers=_HTMX_HEADERS,
                 data={
                     "text": "Max Mustermann",
                     "strategy": strategy,
@@ -126,6 +136,7 @@ class TestAnonymizeForm:
         """Invalid strategy should return error fragment, not 500."""
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Max Mustermann",
                 "strategy": "nonexistent",
@@ -141,6 +152,7 @@ class TestAnonymizeForm:
         """Verify that replace strategy uses [PERSON] bracket format."""
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann",
                 "strategy": "replace",
@@ -173,13 +185,118 @@ class TestRedactPdf:
         assert r.headers["content-disposition"] == "attachment; filename=redacted.pdf"
         assert r.content[:4] == b"%PDF"
 
+    def test_redact_pdf_works_without_htmx_header(self) -> None:
+        """PDF redaction uses a plain HTML form, not HTMX — no HX-Request needed."""
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "Herr Max Mustermann", fontsize=12)
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        pdf_b64 = base64.b64encode(pdf_bytes).decode()
+
+        r = client.post(
+            "/redact-pdf",
+            data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
+        )
+        assert r.status_code == 200
+
     def test_redact_pdf_rejects_invalid_content(self) -> None:
-        """Non-PDF content should return an error, not crash."""
+        """Non-PDF content should return 400, not crash."""
         fake_b64 = base64.b64encode(b"not a pdf").decode()
         r = client.post(
             "/redact-pdf",
             data={"pdf_b64": fake_b64, "score_threshold": "0.35"},
         )
-        # Returns 500 with error message (PyMuPDF can't open non-PDF)
-        assert r.status_code == 500
-        assert "fehlgeschlagen" in r.text.lower()
+        assert r.status_code == 400
+
+    def test_redact_pdf_rejects_malformed_base64(self) -> None:
+        """Malformed base64 should return 400 with a clear error message."""
+        r = client.post(
+            "/redact-pdf",
+            data={"pdf_b64": "!!!not-valid-base64!!!", "score_threshold": "0.35"},
+        )
+        assert r.status_code == 400
+        assert "PDF-Daten" in r.text
+
+
+class TestCsrfProtection:
+    def test_detect_without_htmx_header_rejected(self) -> None:
+        """POST /detect without HX-Request header should be rejected."""
+        r = client.post(
+            "/detect",
+            data={"text": "test", "score_threshold": "0.35"},
+        )
+        assert r.status_code == 403
+
+    def test_anonymize_without_htmx_header_rejected(self) -> None:
+        """POST /anonymize-form without HX-Request header should be rejected."""
+        r = client.post(
+            "/anonymize-form",
+            data={
+                "text": "Max Mustermann",
+                "strategy": "replace",
+                "score_threshold": "0.35",
+                "is_pdf": "false",
+                "pdf_b64": "",
+            },
+        )
+        assert r.status_code == 403
+
+    def test_redact_pdf_allows_plain_form(self) -> None:
+        """POST /redact-pdf should work without HX-Request (uses plain HTML form)."""
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "Herr Max Mustermann", fontsize=12)
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        pdf_b64 = base64.b64encode(pdf_bytes).decode()
+        r = client.post(
+            "/redact-pdf",
+            data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
+        )
+        assert r.status_code == 200
+
+
+class TestSecurityHeaders:
+    def test_cache_control_headers(self) -> None:
+        """Responses should include anti-caching headers to prevent PII leakage."""
+        r = client.get("/")
+        assert r.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+        assert r.headers["Pragma"] == "no-cache"
+
+    def test_security_headers_present(self) -> None:
+        """Core security headers should be set on all responses."""
+        r = client.get("/")
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert r.headers["X-Frame-Options"] == "DENY"
+        assert "no-referrer" in r.headers["Referrer-Policy"]
+
+    def test_csp_header_present(self) -> None:
+        r = client.get("/")
+        csp = r.headers["Content-Security-Policy"]
+        assert "default-src 'self'" in csp
+        assert "frame-ancestors 'none'" in csp
+
+
+class TestXssDefenseInDepth:
+    def test_invalid_strategy_is_escaped(self) -> None:
+        """XSS payload in strategy field should be HTML-escaped in the error message.
+
+        html.escape() + Jinja2 auto-escape = double-escaping (defense-in-depth).
+        The key assertion: no raw <script> tag in the output.
+        """
+        r = client.post(
+            "/anonymize-form",
+            headers=_HTMX_HEADERS,
+            data={
+                "text": "Max Mustermann",
+                "strategy": '<script>alert("xss")</script>',
+                "score_threshold": "0.35",
+                "is_pdf": "false",
+                "pdf_b64": "",
+            },
+        )
+        assert r.status_code == 200
+        assert "<script>" not in r.text

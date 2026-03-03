@@ -122,7 +122,6 @@ async def anonymize(
     )
 
     return AnonymizeResponse(
-        original_text=request.text,
         anonymized_text=anonymized,
         entities_found=len(detections),
         strategy=request.strategy.value,

@@ -5,6 +5,8 @@ import pytest
 
 from document_anonymizer.detection.engine import create_analyzer_engine
 from document_anonymizer.document.pdf_handler import (
+    PdfPageLimitExceededError,
+    anonymize_pdf_text,
     detect_pii_in_pdf,
     extract_text_from_pdf,
     redact_pdf,
@@ -105,3 +107,58 @@ class TestRedactPdf:
         redacted_bytes, _ = redact_pdf(analyzer, sample_pdf)  # type: ignore[arg-type]
         # After garbage=4 cleanup, the redacted PDF should be reasonably sized
         assert len(redacted_bytes) > 0
+
+
+class TestPdfPageLimit:
+    def test_extract_rejects_oversized_pdf(self) -> None:
+        """PDFs exceeding MAX_PDF_PAGES should raise PdfPageLimitExceededError."""
+        from document_anonymizer.document.pdf_handler import MAX_PDF_PAGES
+
+        doc = fitz.open()
+        for _ in range(MAX_PDF_PAGES + 1):
+            doc.new_page()
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        with pytest.raises(PdfPageLimitExceededError) as exc_info:
+            extract_text_from_pdf(pdf_bytes)
+        assert exc_info.value.total_pages == MAX_PDF_PAGES + 1
+
+    def test_detect_rejects_oversized_pdf(self, analyzer: object) -> None:
+        from document_anonymizer.document.pdf_handler import MAX_PDF_PAGES
+
+        doc = fitz.open()
+        for _ in range(MAX_PDF_PAGES + 1):
+            doc.new_page()
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        with pytest.raises(PdfPageLimitExceededError):
+            detect_pii_in_pdf(analyzer, pdf_bytes)  # type: ignore[arg-type]
+
+    def test_redact_rejects_oversized_pdf(self, analyzer: object) -> None:
+        from document_anonymizer.document.pdf_handler import MAX_PDF_PAGES
+
+        doc = fitz.open()
+        for _ in range(MAX_PDF_PAGES + 1):
+            doc.new_page()
+        pdf_bytes = doc.tobytes()
+        doc.close()
+
+        with pytest.raises(PdfPageLimitExceededError):
+            redact_pdf(analyzer, pdf_bytes)  # type: ignore[arg-type]
+
+
+class TestAnonymizePdfText:
+    def test_anonymizes_pdf_text(self, analyzer: object, sample_pdf: bytes) -> None:
+        from document_anonymizer.anonymization.engine import create_anonymizer_engine
+
+        anonymizer = create_anonymizer_engine()
+        anonymized, detections = anonymize_pdf_text(
+            analyzer,
+            anonymizer,
+            sample_pdf,  # type: ignore[arg-type]
+        )
+        assert len(detections) > 0
+        assert isinstance(anonymized, str)
+        assert "Max Mustermann" not in anonymized

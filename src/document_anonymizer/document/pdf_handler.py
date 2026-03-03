@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import fitz
+import structlog
 
 from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
@@ -18,6 +19,11 @@ from document_anonymizer.document.text_handler import detect_pii_in_text
 
 if TYPE_CHECKING:
     from presidio_analyzer import AnalyzerEngine, RecognizerResult
+
+logger = structlog.get_logger(__name__)
+
+# Maximum pages to process (defense against DoS via large PDFs)
+MAX_PDF_PAGES = 200
 
 
 @dataclass
@@ -31,6 +37,39 @@ class PdfDetection:
     rect: fitz.Rect
 
 
+class PdfPageLimitExceededError(Exception):
+    """Raised when a PDF exceeds the maximum allowed page count."""
+
+    def __init__(self, total_pages: int) -> None:
+        self.total_pages = total_pages
+        super().__init__(
+            f"PDF has {total_pages} pages, exceeding the limit of {MAX_PDF_PAGES}."
+        )
+
+
+class IncompleteRedactionError(Exception):
+    """Raised when some detected PII could not be located for redaction.
+
+    The partial_pdf attribute contains the PDF with successful redactions
+    applied, so the caller can still offer it with a warning.
+    """
+
+    def __init__(
+        self,
+        unredacted_count: int,
+        total_count: int,
+        partial_pdf: bytes | None = None,
+    ) -> None:
+        self.unredacted_count = unredacted_count
+        self.total_count = total_count
+        self.partial_pdf = partial_pdf
+        super().__init__(
+            f"{unredacted_count} of {total_count} detected PII entities "
+            f"could not be visually located for redaction. "
+            f"Manual review recommended."
+        )
+
+
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """Extract all text from a PDF document.
 
@@ -41,10 +80,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         Concatenated text from all pages.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        pages = []
-        for page in doc:
-            pages.append(page.get_text())
-        return "\n".join(pages)
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+        return "\n".join(page.get_text() for page in doc)
 
 
 def detect_pii_in_pdf(
@@ -59,6 +97,9 @@ def detect_pii_in_pdf(
     bounding rectangles on the PDF pages.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+
         detections: list[PdfDetection] = []
 
         for page_num, page in enumerate(doc):
@@ -98,6 +139,9 @@ def redact_pdf(
     Uses PyMuPDF's add_redact_annot() + apply_redactions() which removes
     text from the content stream. Also scrubs document metadata.
 
+    Raises IncompleteRedactionError if any detected PII cannot be
+    visually located for redaction.
+
     Args:
         analyzer: Presidio AnalyzerEngine.
         pdf_bytes: Raw PDF file content.
@@ -108,7 +152,12 @@ def redact_pdf(
         Tuple of (redacted_pdf_bytes, detected_entities).
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+
         all_detections: list[PdfDetection] = []
+        total_entities = 0
+        unredacted_entities = 0
 
         for page_num, page in enumerate(doc):
             page_text = page.get_text()
@@ -120,8 +169,19 @@ def redact_pdf(
             )
 
             for result in results:
+                total_entities += 1
                 pii_text = page_text[result.start : result.end]
                 rects = page.search_for(pii_text)
+
+                if not rects:
+                    unredacted_entities += 1
+                    logger.warning(
+                        "pii_redaction_miss",
+                        entity_type=result.entity_type,
+                        page=page_num,
+                        score=round(result.score, 3),
+                    )
+                    continue
 
                 for rect in rects:
                     all_detections.append(
@@ -144,6 +204,11 @@ def redact_pdf(
 
         # Save with garbage collection to remove unreferenced objects
         redacted_bytes = doc.tobytes(garbage=4, deflate=True)
+
+        if unredacted_entities > 0:
+            raise IncompleteRedactionError(
+                unredacted_entities, total_entities, partial_pdf=redacted_bytes
+            )
 
     return redacted_bytes, all_detections
 

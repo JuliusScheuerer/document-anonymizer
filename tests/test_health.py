@@ -1,8 +1,14 @@
 """Tests for health check module."""
 
+import importlib.metadata
 from unittest.mock import patch
 
+from fastapi.testclient import TestClient
+
+from document_anonymizer.api.app import app
 from document_anonymizer.health import HealthResponse, check_health
+
+client = TestClient(app)
 
 
 class TestHealthResponse:
@@ -31,3 +37,31 @@ class TestCheckHealth:
             resp = check_health()
             assert resp.status == "degraded"
             assert resp.analyzer_ready is False
+
+    def test_version_fallback_when_package_not_found(self) -> None:
+        with patch(
+            "document_anonymizer.health.importlib.metadata.version",
+            side_effect=importlib.metadata.PackageNotFoundError,
+        ):
+            from document_anonymizer.health import _get_version
+
+            assert _get_version() == "unknown"
+
+
+class TestHealthEndpoint:
+    def test_healthy_returns_200(self) -> None:
+        r = client.get("/health")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "ok"
+
+    def test_degraded_returns_503(self) -> None:
+        with patch(
+            "document_anonymizer.api.app.check_health",
+            return_value=HealthResponse(status="degraded", analyzer_ready=False),
+        ):
+            r = client.get("/health")
+            assert r.status_code == 503
+            data = r.json()
+            assert data["status"] == "degraded"
+            assert data["analyzer_ready"] is False

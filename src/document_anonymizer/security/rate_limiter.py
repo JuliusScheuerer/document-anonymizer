@@ -1,5 +1,6 @@
-"""In-memory sliding window rate limiter."""
+"""In-memory sliding window rate limiter with async safety."""
 
+import asyncio
 import time
 from collections import defaultdict
 
@@ -7,12 +8,16 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+# Maximum number of tracked IPs to prevent unbounded memory growth
+_MAX_TRACKED_IPS = 10_000
+
 
 class RateLimiterMiddleware(BaseHTTPMiddleware):
     """Sliding window rate limiter per client IP.
 
     Tracks request timestamps per IP and rejects requests that exceed
-    the configured rate within the window period.
+    the configured rate within the window period. Uses an asyncio lock
+    to prevent TOCTOU races under concurrent requests.
     """
 
     def __init__(
@@ -27,6 +32,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         self.window_seconds = window_seconds
         self.trusted_proxies = trusted_proxies or set()
         self._requests: dict[str, list[float]] = defaultdict(list)
+        self._lock = asyncio.Lock()
 
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP, only trusting X-Forwarded-For from known proxies."""
@@ -57,14 +63,27 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         client_ip = self._get_client_ip(request)
         now = time.monotonic()
 
-        self._clean_old_requests(now)
+        async with self._lock:
+            self._clean_old_requests(now)
 
-        if len(self._requests[client_ip]) >= self.requests_per_window:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Rate limit exceeded. Try again later."},
-                headers={"Retry-After": str(self.window_seconds)},
-            )
+            # Reject if tracked IPs exceed cap (defense against distributed attacks)
+            if (
+                client_ip not in self._requests
+                and len(self._requests) >= _MAX_TRACKED_IPS
+            ):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded. Try again later."},
+                    headers={"Retry-After": str(self.window_seconds)},
+                )
 
-        self._requests[client_ip].append(now)
+            if len(self._requests[client_ip]) >= self.requests_per_window:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Rate limit exceeded. Try again later."},
+                    headers={"Retry-After": str(self.window_seconds)},
+                )
+
+            self._requests[client_ip].append(now)
+
         return await call_next(request)
