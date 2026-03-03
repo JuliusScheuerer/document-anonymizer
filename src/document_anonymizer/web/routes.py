@@ -230,7 +230,7 @@ async def anonymize_form(
         )
 
 
-@web_router.post("/redact-pdf")
+@web_router.post("/redact-pdf", dependencies=[Depends(_require_htmx_header)])
 async def redact_pdf_form(
     request: Request,
     pdf_b64: str = Form(...),
