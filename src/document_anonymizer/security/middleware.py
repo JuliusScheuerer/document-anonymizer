@@ -21,7 +21,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Bind request_id to structlog context for all downstream logging
         structlog.contextvars.bind_contextvars(request_id=request_id)
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        finally:
+            # Always clear structlog context, even if call_next raises
+            structlog.contextvars.unbind_contextvars("request_id")
 
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -43,9 +47,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = (
             "camera=(), microphone=(), geolocation=()"
         )
+        # Prevent browsers from caching PII-containing responses
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
         response.headers["X-Request-ID"] = request_id
-
-        # Clear structlog context after response
-        structlog.contextvars.unbind_contextvars("request_id")
 
         return response
