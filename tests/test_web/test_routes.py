@@ -7,6 +7,8 @@ from fastapi.testclient import TestClient
 
 from document_anonymizer.api.app import app
 
+# HTMX sends HX-Request header; our CSRF protection requires it on POSTs
+_HTMX_HEADERS = {"HX-Request": "true"}
 client = TestClient(app)
 
 
@@ -31,6 +33,7 @@ class TestDetectForm:
     def test_detect_returns_results(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann, IBAN DE89 3704 0044 0532 0130 00",
                 "score_threshold": "0.35",
@@ -42,6 +45,7 @@ class TestDetectForm:
     def test_detect_empty_text_error(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"text": "", "score_threshold": "0.35"},
         )
         assert r.status_code == 200
@@ -50,6 +54,7 @@ class TestDetectForm:
     def test_detect_highlights_entities(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "IBAN: DE89 3704 0044 0532 0130 00",
                 "score_threshold": "0.35",
@@ -61,6 +66,7 @@ class TestDetectForm:
         """Verify XSS in text input is escaped."""
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={
                 "text": '<script>alert("xss")</script> Max Mustermann',
                 "score_threshold": "0.35",
@@ -73,6 +79,7 @@ class TestDetectForm:
     def test_detect_with_file_upload(self) -> None:
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"score_threshold": "0.35", "text": ""},
             files={"file": ("test.txt", b"Herr Max Mustermann", "text/plain")},
         )
@@ -87,6 +94,7 @@ class TestDetectForm:
 
         r = client.post(
             "/detect",
+            headers=_HTMX_HEADERS,
             data={"score_threshold": "0.35", "text": ""},
             files={"file": ("test.pdf", pdf_bytes, "application/pdf")},
         )
@@ -97,6 +105,7 @@ class TestAnonymizeForm:
     def test_anonymize_returns_diff(self) -> None:
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann",
                 "strategy": "replace",
@@ -112,6 +121,7 @@ class TestAnonymizeForm:
         for strategy in ["replace", "fake", "mask", "hash", "redact"]:
             r = client.post(
                 "/anonymize-form",
+                headers=_HTMX_HEADERS,
                 data={
                     "text": "Max Mustermann",
                     "strategy": strategy,
@@ -126,6 +136,7 @@ class TestAnonymizeForm:
         """Invalid strategy should return error fragment, not 500."""
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Max Mustermann",
                 "strategy": "nonexistent",
@@ -141,6 +152,7 @@ class TestAnonymizeForm:
         """Verify that replace strategy uses [PERSON] bracket format."""
         r = client.post(
             "/anonymize-form",
+            headers=_HTMX_HEADERS,
             data={
                 "text": "Herr Max Mustermann",
                 "strategy": "replace",
@@ -166,6 +178,7 @@ class TestRedactPdf:
 
         r = client.post(
             "/redact-pdf",
+            headers=_HTMX_HEADERS,
             data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
         )
         assert r.status_code == 200
@@ -178,8 +191,19 @@ class TestRedactPdf:
         fake_b64 = base64.b64encode(b"not a pdf").decode()
         r = client.post(
             "/redact-pdf",
+            headers=_HTMX_HEADERS,
             data={"pdf_b64": fake_b64, "score_threshold": "0.35"},
         )
         # Returns 500 with error message (PyMuPDF can't open non-PDF)
         assert r.status_code == 500
         assert "fehlgeschlagen" in r.text.lower()
+
+
+class TestCsrfProtection:
+    def test_post_without_htmx_header_rejected(self) -> None:
+        """POST without HX-Request header should be rejected (CSRF protection)."""
+        r = client.post(
+            "/detect",
+            data={"text": "test", "score_threshold": "0.35"},
+        )
+        assert r.status_code == 403

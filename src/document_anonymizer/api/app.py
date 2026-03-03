@@ -76,7 +76,7 @@ app.include_router(api_router)
 app.include_router(web_router)
 
 
-@app.get("/health")
+@app.get("/health", response_model=None)
 async def health() -> HealthResponse | JSONResponse:
     """Health check endpoint — verifies dependencies are loaded."""
     result = check_health()
