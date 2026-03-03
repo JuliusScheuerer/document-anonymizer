@@ -183,7 +183,7 @@ async def anonymize_form(
         return templates.TemplateResponse(
             request,
             "error_fragment.html",
-            {"error": f"Unbekannte Strategie: {strategy}"},
+            {"error": f"Unbekannte Strategie: {html.escape(strategy)}"},
         )
 
     try:
@@ -230,7 +230,7 @@ async def anonymize_form(
         )
 
 
-@web_router.post("/redact-pdf", dependencies=[Depends(_require_htmx_header)])
+@web_router.post("/redact-pdf")
 async def redact_pdf_form(
     request: Request,
     pdf_b64: str = Form(...),
