@@ -1,10 +1,11 @@
 """Web frontend routes serving Jinja2 templates."""
 
 import base64
+import binascii
 import html
 import time
 from pathlib import Path
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 import structlog
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -50,11 +51,14 @@ async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, "index.html", {"strategies": strategies})
 
 
+_MAX_TEXT_LENGTH = 100_000
+
+
 @web_router.post("/detect", response_class=HTMLResponse)
 async def detect_form(
     request: Request,
-    text: str = Form(default=""),
-    score_threshold: float = Form(default=0.35),
+    text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     file: UploadFile | None = File(default=None),  # noqa: B008
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> HTMLResponse:
@@ -131,9 +135,9 @@ async def detect_form(
 @web_router.post("/anonymize-form", response_class=HTMLResponse)
 async def anonymize_form(
     request: Request,
-    text: str = Form(...),
+    text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
     strategy: str = Form(default="replace"),
-    score_threshold: float = Form(default=0.35),
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     is_pdf: bool = Form(default=False),
     pdf_b64: str = Form(default=""),
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
@@ -146,7 +150,7 @@ async def anonymize_form(
         return templates.TemplateResponse(
             request,
             "error_fragment.html",
-            {"error": f"Unbekannte Strategie: {html.escape(strategy)}"},
+            {"error": f"Unbekannte Strategie: {strategy}"},
         )
 
     try:
@@ -195,9 +199,9 @@ async def anonymize_form(
 
 @web_router.post("/redact-pdf")
 async def redact_pdf_form(
-    request: Request,  # noqa: ARG001
+    request: Request,
     pdf_b64: str = Form(...),
-    score_threshold: float = Form(default=0.35),
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> Response:
     """Handle PDF redaction — returns redacted PDF for download."""
@@ -207,18 +211,27 @@ async def redact_pdf_form(
         redacted_bytes, _ = redact_pdf(
             analyzer, pdf_bytes, score_threshold=score_threshold
         )
-    except FileValidationError as e:
-        return Response(
-            content=str(e),
+    except binascii.Error:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": "Ungültige PDF-Daten. Bitte laden Sie die Datei erneut hoch."},
             status_code=400,
-            media_type="text/plain",
+        )
+    except FileValidationError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": str(e)},
+            status_code=400,
         )
     except Exception:
         logger.exception("redact_pdf_error")
-        return Response(
-            content="PDF-Schwärzung fehlgeschlagen.",
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": "PDF-Schwärzung fehlgeschlagen."},
             status_code=500,
-            media_type="text/plain",
         )
 
     return Response(
