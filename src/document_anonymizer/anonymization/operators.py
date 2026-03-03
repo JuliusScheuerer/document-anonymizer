@@ -15,7 +15,7 @@ _ID_CARD_ALPHANUM = _ID_CARD_LETTERS + "0123456789"
 def _fake_steuer_id() -> str:
     """Generate a fake 11-digit Steuer-ID with valid structure.
 
-    Rules: no leading zero, exactly one digit appears 2-3 times
+    Rules: no leading zero, exactly one digit appears twice
     in the first 10 positions, all others appear at most once.
     """
     # Pick one digit to repeat (appears twice)
