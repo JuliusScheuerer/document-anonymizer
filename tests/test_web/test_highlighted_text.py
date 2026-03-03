@@ -72,3 +72,49 @@ class TestBuildHighlightedText:
         result = _build_highlighted_text(text, entities)
         assert result.count("entity-highlight") == 2
         assert " und " in result
+
+    def test_overlapping_entities_first_wins(self) -> None:
+        """When entities overlap, only the first (by start position) is highlighted."""
+        text = "Max Mustermann from Berlin"
+        entities = [
+            {
+                "entity_type": "PERSON",
+                "start": 0,
+                "end": 14,
+                "score": 0.9,
+                "text": "Max Mustermann",
+            },
+            {
+                "entity_type": "PERSON",
+                "start": 4,
+                "end": 14,
+                "score": 0.7,
+                "text": "Mustermann",
+            },
+        ]
+        result = _build_highlighted_text(text, entities)
+        # Only 1 highlight — the overlapping entity is skipped
+        assert result.count("entity-highlight") == 1
+        assert "Max Mustermann" in result
+
+    def test_adjacent_entities_not_merged(self) -> None:
+        """Adjacent (non-overlapping) entities should each get their own highlight."""
+        text = "AB"
+        entities = [
+            {
+                "entity_type": "PERSON",
+                "start": 0,
+                "end": 1,
+                "score": 0.9,
+                "text": "A",
+            },
+            {
+                "entity_type": "LOCATION",
+                "start": 1,
+                "end": 2,
+                "score": 0.8,
+                "text": "B",
+            },
+        ]
+        result = _build_highlighted_text(text, entities)
+        assert result.count("entity-highlight") == 2
