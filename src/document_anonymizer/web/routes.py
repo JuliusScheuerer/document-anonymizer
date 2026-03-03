@@ -245,13 +245,14 @@ def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
     """Build HTML with color-coded PII highlights.
 
     Escapes the full text first, then inserts <mark> tags at
-    offset-adjusted positions to prevent XSS.
+    offset-adjusted positions to prevent XSS. Overlapping entities
+    are merged (the first span wins, overlapping spans are skipped).
     """
     if not entities:
         return html.escape(text)
 
-    # Sort by start position (ascending) for left-to-right processing
-    sorted_entities = sorted(entities, key=lambda e: e["start"])
+    # Sort by start position, then by longest span first for ties
+    sorted_entities = sorted(entities, key=lambda e: (e["start"], -e["end"]))
 
     parts: list[str] = []
     last_end = 0
@@ -259,6 +260,11 @@ def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
     for entity in sorted_entities:
         start = entity["start"]
         end = entity["end"]
+
+        # Skip entities that overlap with the previous one
+        if start < last_end:
+            continue
+
         entity_type = entity["entity_type"]
         score = entity["score"]
 
