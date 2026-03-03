@@ -37,6 +37,16 @@ class PdfDetection:
     rect: fitz.Rect
 
 
+class PdfPageLimitExceededError(Exception):
+    """Raised when a PDF exceeds the maximum allowed page count."""
+
+    def __init__(self, total_pages: int) -> None:
+        self.total_pages = total_pages
+        super().__init__(
+            f"PDF has {total_pages} pages, exceeding the limit of {MAX_PDF_PAGES}."
+        )
+
+
 class IncompleteRedactionError(Exception):
     """Raised when some detected PII could not be located for redaction.
 
@@ -70,17 +80,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         Concatenated text from all pages.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        pages = []
-        for i, page in enumerate(doc):
-            if i >= MAX_PDF_PAGES:
-                logger.warning(
-                    "pdf_page_limit_reached",
-                    max_pages=MAX_PDF_PAGES,
-                    total_pages=len(doc),
-                )
-                break
-            pages.append(page.get_text())
-        return "\n".join(pages)
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+        return "\n".join(page.get_text() for page in doc)
 
 
 def detect_pii_in_pdf(
@@ -95,12 +97,12 @@ def detect_pii_in_pdf(
     bounding rectangles on the PDF pages.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+
         detections: list[PdfDetection] = []
 
         for page_num, page in enumerate(doc):
-            if page_num >= MAX_PDF_PAGES:
-                break
-
             page_text = page.get_text()
             if not page_text.strip():
                 continue
@@ -150,19 +152,14 @@ def redact_pdf(
         Tuple of (redacted_pdf_bytes, detected_entities).
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+
         all_detections: list[PdfDetection] = []
         total_entities = 0
         unredacted_entities = 0
 
         for page_num, page in enumerate(doc):
-            if page_num >= MAX_PDF_PAGES:
-                logger.warning(
-                    "pdf_redaction_page_limit_reached",
-                    max_pages=MAX_PDF_PAGES,
-                    total_pages=len(doc),
-                )
-                break
-
             page_text = page.get_text()
             if not page_text.strip():
                 continue

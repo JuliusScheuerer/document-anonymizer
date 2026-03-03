@@ -19,6 +19,7 @@ from document_anonymizer.anonymization.strategies import AnonymizationStrategy
 from document_anonymizer.api.dependencies import get_analyzer, get_anonymizer
 from document_anonymizer.document.pdf_handler import (
     IncompleteRedactionError,
+    PdfPageLimitExceededError,
     extract_text_from_pdf,
     redact_pdf,
 )
@@ -98,11 +99,15 @@ async def detect_form(
         if mime_type == "application/pdf":
             try:
                 validate_pdf_structure(content)
+                text = extract_text_from_pdf(content)
             except FileValidationError as e:
                 return templates.TemplateResponse(
                     request, "error_fragment.html", {"error": str(e)}
                 )
-            text = extract_text_from_pdf(content)
+            except PdfPageLimitExceededError as e:
+                return templates.TemplateResponse(
+                    request, "error_fragment.html", {"error": str(e)}
+                )
             is_pdf = True
             pdf_b64 = base64.b64encode(content).decode()
         else:
@@ -248,6 +253,13 @@ async def redact_pdf_form(
             status_code=400,
         )
     except FileValidationError as e:
+        return templates.TemplateResponse(
+            request,
+            "error_fragment.html",
+            {"error": str(e)},
+            status_code=400,
+        )
+    except PdfPageLimitExceededError as e:
         return templates.TemplateResponse(
             request,
             "error_fragment.html",
