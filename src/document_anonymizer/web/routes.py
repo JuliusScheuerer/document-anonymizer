@@ -183,7 +183,7 @@ async def anonymize_form(
         return templates.TemplateResponse(
             request,
             "error_fragment.html",
-            {"error": f"Unbekannte Strategie: {html.escape(strategy)}"},
+            {"error": f"Unbekannte Strategie: {strategy}"},
         )
 
     try:
