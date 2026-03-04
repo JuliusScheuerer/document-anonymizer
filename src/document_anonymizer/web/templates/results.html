@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" id="review-panel">
     <!-- Detection Summary -->
     <div class="bg-white rounded-lg border border-gray-200 p-4">
         <div class="flex items-center justify-between mb-3">
@@ -11,76 +11,101 @@
 
         {% if entities %}
         <!-- Highlighted Text Preview -->
-        <div class="mb-4">
+        <div class="mb-3">
             <h3 class="text-sm font-medium text-gray-600 mb-1">Erkannte PII im Text</h3>
-            <div class="bg-gray-50 rounded p-3 font-mono text-sm whitespace-pre-wrap break-words">{{ highlighted_text | safe }}</div>
+            <div id="highlighted-preview" class="bg-gray-50 rounded p-3 font-mono text-sm whitespace-pre-wrap break-words">{{ highlighted_text | safe }}</div>
         </div>
 
-        <!-- Entity Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="border-b border-gray-200 text-left">
-                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Typ</th>
-                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Erkannter Text</th>
-                        <th scope="col" class="py-2 pr-4 font-medium text-gray-600">Konfidenz</th>
-                        <th scope="col" class="py-2 font-medium text-gray-600">Position</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for entity in entities %}
-                    <tr class="border-b border-gray-100">
-                        <td class="py-2 pr-4">
-                            <span class="entity-badge entity-{{ entity.entity_type | lower | replace('_', '-') }}">
-                                {{ entity.entity_type }}
-                            </span>
-                        </td>
-                        <td class="py-2 pr-4 font-mono text-sm">{{ entity.text }}</td>
-                        <td class="py-2 pr-4">
-                            <div class="flex items-center gap-2">
-                                <div class="confidence-bar">
-                                    <div class="confidence-fill" style="width: {{ (entity.score * 100) | int }}%"></div>
-                                </div>
-                                <span>{{ entity.score }}</span>
-                            </div>
-                        </td>
-                        <td class="py-2 text-gray-500">{{ entity.start }}&ndash;{{ entity.end }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-gray-500 text-center py-4">Keine PII-Entit&auml;ten erkannt.</p>
-        {% endif %}
-    </div>
+        <!-- Tier-based Review Panel -->
+        <div class="space-y-4">
+            <h3 class="text-sm font-medium text-gray-600">Entit&auml;ten pr&uuml;fen und ausw&auml;hlen</h3>
 
-    {% if entities %}
-    <!-- Anonymization Form -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
-        <h2 class="text-lg font-semibold mb-3">Anonymisieren</h2>
-        <form action="/anonymize-form" method="post" hx-post="/anonymize-form" hx-target="#anonymized-output" hx-indicator="#anon-loading">
-            <input type="hidden" name="text" value="{{ original_text }}">
-            <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
-            <input type="hidden" name="is_pdf" value="{{ is_pdf }}">
-            <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
+            {% set tier_config = [
+                ("high", "Hohe Konfidenz", "tier-count-badge--high", "&#8805; 70%"),
+                ("medium", "Mittlere Konfidenz", "tier-count-badge--medium", "50&ndash;69%"),
+                ("low", "Niedrige Konfidenz", "tier-count-badge--low", "35&ndash;49%")
+            ] %}
 
-            <div class="flex items-end gap-4">
-                <div>
-                    <label for="strategy" class="block text-sm font-medium text-gray-700 mb-1">Strategie</label>
-                    <select id="strategy" name="strategy" class="input-field">
-                        <option value="replace">Replace ([PERSON], [IBAN], ...)</option>
-                        <option value="fake">Fake (realistische deutsche Daten)</option>
-                        <option value="mask">Mask (teilweise verdecken)</option>
-                        <option value="hash">Hash (SHA-256 Pseudonymisierung)</option>
-                        <option value="redact">Redact (komplett entfernen)</option>
-                    </select>
+            {% for tier_key, tier_label, badge_class, tier_range in tier_config %}
+            {% set tier_entities = entities_by_tier.get(tier_key, []) %}
+            {% if tier_entities %}
+            <div class="tier-section" data-tier="{{ tier_key }}">
+                <div class="tier-header" data-tier-toggle="{{ tier_key }}">
+                    <span class="tier-toggle-icon" id="toggle-icon-{{ tier_key }}">&#9660;</span>
+                    <input
+                        type="checkbox"
+                        class="select-all-checkbox"
+                        id="select-all-{{ tier_key }}"
+                        data-tier="{{ tier_key }}"
+                        {% if tier_key == "high" %}checked{% endif %}
+                    >
+                    <span class="tier-label">{{ tier_label }}</span>
+                    <span class="tier-count-badge {{ badge_class }}">{{ tier_entities | length }}</span>
+                    <span class="text-xs text-gray-500">({{ tier_range }})</span>
                 </div>
-                <button type="submit" class="btn btn-primary">
+                <div class="tier-body" id="tier-body-{{ tier_key }}">
+                    {% for entity in tier_entities %}
+                    <div class="entity-row" data-entity-index="{{ entity.index }}">
+                        <input
+                            type="checkbox"
+                            class="entity-checkbox"
+                            id="entity-cb-{{ entity.index }}"
+                            data-entity-index="{{ entity.index }}"
+                            {% if tier_key == "high" %}checked{% endif %}
+                        >
+                        <span class="entity-badge entity-{{ entity.entity_type | lower | replace('_', '-') }}">
+                            {{ entity.entity_type }}
+                        </span>
+                        <span class="entity-row__text" title="{{ entity.text }}">{{ entity.text }}</span>
+                        <span class="entity-row__score">
+                            <span class="confidence-bar">
+                                <span class="confidence-fill" style="width: {{ (entity.score * 100) | int }}%"></span>
+                            </span>
+                            {{ "%.0f" | format(entity.score * 100) }}%
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Action bar -->
+        <div class="review-action-bar mt-4">
+            <span class="review-counter" id="selection-counter"></span>
+            <div class="flex items-center gap-2" style="margin-left: auto;">
+                <label for="strategy" class="text-sm font-medium text-gray-700">Strategie:</label>
+                <select id="strategy" name="strategy" class="input-field">
+                    {% for s in strategies %}
+                    <option value="{{ s }}">{{ s | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <form id="anonymize-form" action="/anonymize-form" method="post"
+                  hx-post="/anonymize-form" hx-target="#anonymized-output"
+                  hx-indicator="#anon-loading" class="flex gap-2">
+                <input type="hidden" name="text" value="{{ original_text }}">
+                <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
+                <input type="hidden" name="is_pdf" value="{{ is_pdf }}">
+                <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
+                <input type="hidden" name="strategy" id="form-strategy" value="replace">
+                <input type="hidden" name="selected_entities" id="selected-entities-input" value="">
+                <button type="submit" class="btn btn-primary" id="anonymize-btn">
                     Anonymisieren
                 </button>
-            </div>
-        </form>
+            </form>
+            {% if is_pdf and pdf_b64 %}
+            <form id="redact-pdf-form" method="post" action="/redact-pdf" class="inline">
+                <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
+                <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
+                <input type="hidden" name="selected_entities" id="selected-entities-pdf" value="">
+                <button type="submit" class="btn btn-secondary" id="redact-btn">
+                    PDF schw&auml;rzen
+                </button>
+            </form>
+            {% endif %}
+        </div>
 
         <div id="anon-loading" class="htmx-indicator text-center py-4">
             <div class="spinner"></div>
@@ -88,6 +113,15 @@
         </div>
 
         <div id="anonymized-output" class="mt-4"></div>
+
+        {% else %}
+        <p class="text-gray-500 text-center py-4">Keine PII-Entit&auml;ten erkannt.</p>
+        {% endif %}
     </div>
+
+    <!-- Embedded entity data for JS -->
+    {% if entities %}
+    <script type="application/json" id="entities-data">{{ entities_json | safe }}</script>
+    <script src="/static/js/review.js"></script>
     {% endif %}
 </div>

@@ -109,6 +109,30 @@ class TestRedactPdf:
         assert len(redacted_bytes) > 0
 
 
+class TestRedactPdfMiss:
+    def test_redact_pdf_miss_raises_incomplete(self, analyzer: object) -> None:
+        """When search_for can't find detected PII, raise IncompleteRedactionError."""
+        from unittest.mock import patch
+
+        from document_anonymizer.document.pdf_handler import IncompleteRedactionError
+
+        # Create a PDF with text that Presidio will detect
+        pdf = _create_test_pdf("Herr Max Mustermann in Berlin")
+
+        def mock_search(
+            self: fitz.Page,
+            text: str,
+            *args: object,
+            **kwargs: object,
+        ) -> list[object]:
+            return []
+
+        with patch.object(fitz.Page, "search_for", mock_search):
+            with pytest.raises(IncompleteRedactionError) as exc_info:
+                redact_pdf(analyzer, pdf)  # type: ignore[arg-type]
+            assert exc_info.value.unredacted_count > 0
+
+
 class TestPdfPageLimit:
     def test_extract_rejects_oversized_pdf(self) -> None:
         """PDFs exceeding MAX_PDF_PAGES should raise PdfPageLimitExceededError."""

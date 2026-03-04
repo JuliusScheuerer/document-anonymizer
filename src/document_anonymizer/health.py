@@ -2,6 +2,7 @@
 
 import importlib.metadata
 from dataclasses import dataclass, field
+from typing import Literal
 
 import structlog
 
@@ -13,6 +14,7 @@ def _get_version() -> str:
     try:
         return importlib.metadata.version("document-anonymizer")
     except importlib.metadata.PackageNotFoundError:
+        logger.warning("package_version_not_found")
         return "unknown"
 
 
@@ -20,7 +22,7 @@ def _get_version() -> str:
 class HealthResponse:
     """Health check response."""
 
-    status: str = "ok"
+    status: Literal["ok", "degraded"] = "ok"
     version: str = field(default_factory=_get_version)
     analyzer_ready: bool = False
 

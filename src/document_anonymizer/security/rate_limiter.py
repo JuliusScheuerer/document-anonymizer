@@ -66,7 +66,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         async with self._lock:
             self._clean_old_requests(now)
 
-            # Reject if tracked IPs exceed cap (defense against distributed attacks)
+            # Reject new IPs if tracked count exceeds cap (prevents memory exhaustion)
             if (
                 client_ip not in self._requests
                 and len(self._requests) >= _MAX_TRACKED_IPS
