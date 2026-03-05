@@ -97,10 +97,14 @@ def _template_response(
     if context:
         ctx.update(context)
     # Provide all translations as JSON for client-side window.__t()
+# Only embed translations for full-page responses that include base.html
+if template_name in ("index.html", "base.html"):  # or check explicitly
     all_translations = get_translations(lang)
     ctx["translations_json"] = json.dumps(all_translations, ensure_ascii=False).replace(
         "</", r"<\/"
     )
+else:
+    ctx["translations_json"] = "{}"  # or omit entirely
 
     response = templates.TemplateResponse(
         request, template_name, ctx, status_code=status_code
