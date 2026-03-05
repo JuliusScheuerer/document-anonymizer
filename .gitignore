@@ -27,3 +27,9 @@ coverage.xml
 .copier-answers.yml
 # Generated test documents
 test_documents/
+# Claude Code / AI tooling
+CLAUDE.md
+.claude/
+.playwright-mcp/
+# Design artifacts
+design-*.png

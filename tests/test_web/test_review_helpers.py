@@ -6,10 +6,37 @@ import pytest
 
 from document_anonymizer.web.routes import (
     _group_entities_by_tier,
+    _normalize_line_endings,
     _reconstruct_recognizer_results,
     _reconstruct_selected_entities_for_pdf,
     _score_to_tier,
 )
+
+
+class TestNormalizeLineEndings:
+    def test_crlf_to_lf(self) -> None:
+        assert _normalize_line_endings("hello\r\nworld") == "hello\nworld"
+
+    def test_lone_cr_to_lf(self) -> None:
+        assert _normalize_line_endings("hello\rworld") == "hello\nworld"
+
+    def test_lf_unchanged(self) -> None:
+        assert _normalize_line_endings("hello\nworld") == "hello\nworld"
+
+    def test_mixed_endings(self) -> None:
+        assert _normalize_line_endings("a\r\nb\rc\n") == "a\nb\nc\n"
+
+    def test_empty_string(self) -> None:
+        assert _normalize_line_endings("") == ""
+
+    def test_no_newlines_unchanged(self) -> None:
+        assert _normalize_line_endings("no newlines") == "no newlines"
+
+    def test_crlf_does_not_double_replace(self) -> None:
+        """Ensure \\r\\n becomes \\n, not \\n\\n (replacement order matters)."""
+        result = _normalize_line_endings("a\r\nb")
+        assert result == "a\nb"
+        assert result.count("\n") == 1
 
 
 class TestScoreToTier:
@@ -166,6 +193,20 @@ class TestReconstructRecognizerResults:
                 "end": 5,
                 "score": 0.9,
             },
+        ]
+        with pytest.raises(ValueError, match="konnten nicht"):
+            _reconstruct_recognizer_results(json.dumps(data), "hello")
+
+    def test_score_above_one_raises_valueerror(self) -> None:
+        data = [
+            {"entity_type": "PERSON", "start": 0, "end": 5, "score": 1.5},
+        ]
+        with pytest.raises(ValueError, match="konnten nicht"):
+            _reconstruct_recognizer_results(json.dumps(data), "hello")
+
+    def test_score_below_zero_raises_valueerror(self) -> None:
+        data = [
+            {"entity_type": "PERSON", "start": 0, "end": 5, "score": -0.1},
         ]
         with pytest.raises(ValueError, match="konnten nicht"):
             _reconstruct_recognizer_results(json.dumps(data), "hello")

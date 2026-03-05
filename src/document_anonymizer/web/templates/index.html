@@ -5,13 +5,16 @@
 {% block content %}
 <div class="space-y-6">
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Dokument anonymisieren</h1>
-        <p class="mt-1 text-gray-600">Text eingeben oder Datei hochladen. Alle Daten werden nur im Arbeitsspeicher verarbeitet &mdash; keine Persistenz.</p>
+        <h1 class="section-heading">Dokument anonymisieren</h1>
+        <p class="section-subtitle">Text eingeben oder Datei hochladen. Alle Daten werden nur im Arbeitsspeicher verarbeitet &mdash; keine Persistenz.</p>
     </div>
 
-    <form action="/detect" method="post" enctype="multipart/form-data" hx-post="/detect" hx-target="#results" hx-indicator="#loading" hx-encoding="multipart/form-data" class="space-y-4">
+    <form action="/detect" method="post" enctype="multipart/form-data" hx-post="/detect" hx-target="#results" hx-indicator="#loading" hx-encoding="multipart/form-data" class="warm-card p-4 space-y-4">
         <div>
-            <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Text</label>
+            <div class="flex items-center justify-between mb-1">
+                <label for="text" class="warm-label" style="margin-bottom: 0;">Text</label>
+                <a href="#" id="load-example-btn" class="text-xs example-link">Beispieltext laden</a>
+            </div>
             <textarea
                 id="text"
                 name="text"
@@ -19,18 +22,18 @@
                 class="input-field w-full"
                 placeholder="Geben Sie hier den zu anonymisierenden Text ein...
 
-Beispiel: Herr Max Mustermann, geboren am 15.03.1985, wohnhaft in 10115 Berlin, Musterstraße 42. IBAN: DE89 3704 0044 0532 0130 00. Steuer-ID: 12345679811. Tel: +49 30 12345678."
+Beispiel: Herr Max Mustermann, geboren am 15.03.1985, wohnhaft in 10115 Berlin, Musterstra&#223;e 42. IBAN: DE89 3704 0044 0532 0130 00. Steuer-ID: 12345679811. Tel: +49 30 12345678."
             ></textarea>
         </div>
 
         <div>
-            <label for="file" class="block text-sm font-medium text-gray-700 mb-1">Oder Datei hochladen (TXT, PDF)</label>
+            <label for="file" class="warm-label">Oder Datei hochladen (TXT, PDF)</label>
             <input type="file" id="file" name="file" accept=".txt,.pdf" class="input-field">
         </div>
 
         <div class="flex items-end gap-4">
             <div>
-                <label for="score_threshold" class="block text-sm font-medium text-gray-700 mb-1">
+                <label for="score_threshold" class="warm-label">
                     Konfidenzschwelle
                 </label>
                 <div class="flex items-center gap-2">
@@ -44,7 +47,7 @@ Beispiel: Herr Max Mustermann, geboren am 15.03.1985, wohnhaft in 10115 Berlin, 
                         value="0.35"
                         class="w-48"
                     >
-                    <span id="threshold-value" class="text-sm text-gray-500 mono-text">0.35</span>
+                    <span id="threshold-value" class="text-sm mono-text text-warm-500">0.35</span>
                 </div>
             </div>
 
@@ -56,7 +59,7 @@ Beispiel: Herr Max Mustermann, geboren am 15.03.1985, wohnhaft in 10115 Berlin, 
 
     <div id="loading" class="htmx-indicator text-center py-4">
         <div class="spinner"></div>
-        <p class="text-sm text-gray-500 mt-2">Analysiere...</p>
+        <p class="text-sm mt-2 text-warm-500">Analysiere...</p>
     </div>
 
     <div id="results"></div>

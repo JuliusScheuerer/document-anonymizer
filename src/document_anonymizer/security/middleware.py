@@ -7,6 +7,8 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 
+_STATIC_PATH_PREFIX = "/static/"
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Add security headers to all responses."""
@@ -44,9 +46,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Permissions-Policy"] = (
                 "camera=(), microphone=(), geolocation=()"
             )
-            # Prevent browsers from caching PII-containing responses
-            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
+            # SECURITY INVARIANT: Only successful /static/ responses may be
+            # cached.  All other responses may contain PII and MUST use
+            # no-store.  If you add routes under /static/, ensure they
+            # serve no user data.
+            is_cacheable_static = (
+                request.url.path.startswith(_STATIC_PATH_PREFIX)
+                and response.status_code == 200
+            )
+            if is_cacheable_static:
+                response.headers["Cache-Control"] = "public, max-age=86400"
+            else:
+                response.headers["Cache-Control"] = (
+                    "no-store, no-cache, must-revalidate"
+                )
+                response.headers["Pragma"] = "no-cache"
             response.headers["X-Request-ID"] = request_id
             return response
         finally:

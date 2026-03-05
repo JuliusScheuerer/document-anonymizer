@@ -1,9 +1,9 @@
 <div class="space-y-6" id="review-panel">
     <!-- Detection Summary -->
-    <div class="bg-white rounded-lg border border-gray-200 p-4">
+    <div class="warm-card p-4">
         <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-semibold">Erkennungsergebnisse</h2>
-            <div class="text-sm text-gray-500">
+            <h2 class="summary-heading">Erkennungsergebnisse</h2>
+            <div class="stat-badge">
                 {{ entity_count }} Entit&auml;t{{ "en" if entity_count != 1 else "" }} gefunden
                 &middot; {{ processing_time_ms }} ms
             </div>
@@ -12,18 +12,18 @@
         {% if entities %}
         <!-- Highlighted Text Preview -->
         <div class="mb-3">
-            <h3 class="text-sm font-medium text-gray-600 mb-1">Erkannte PII im Text</h3>
-            <div id="highlighted-preview" class="bg-gray-50 rounded p-3 font-mono text-sm whitespace-pre-wrap break-words">{{ highlighted_text | safe }}</div>
+            <h3 class="diff-heading">Erkannte PII im Text</h3>
+            <div id="highlighted-preview" class="preview-area whitespace-pre-wrap break-words">{{ highlighted_text | safe }}</div>
         </div>
 
         <!-- Tier-based Review Panel -->
         <div class="space-y-4">
-            <h3 class="text-sm font-medium text-gray-600">Entit&auml;ten pr&uuml;fen und ausw&auml;hlen</h3>
+            <h3 class="diff-heading">Entit&auml;ten pr&uuml;fen und ausw&auml;hlen</h3>
 
             {% set tier_config = [
-                ("high", "Hohe Konfidenz", "tier-count-badge--high", "&#8805; 70%"),
-                ("medium", "Mittlere Konfidenz", "tier-count-badge--medium", "50&ndash;69%"),
-                ("low", "Niedrige Konfidenz", "tier-count-badge--low", "35&ndash;49%")
+                ("high", "Hohe Konfidenz", "tier-count-badge--high", "≥ 70%"),
+                ("medium", "Mittlere Konfidenz", "tier-count-badge--medium", "50–69%"),
+                ("low", "Niedrige Konfidenz", "tier-count-badge--low", "35–49%")
             ] %}
 
             {% for tier_key, tier_label, badge_class, tier_range in tier_config %}
@@ -41,7 +41,7 @@
                     >
                     <span class="tier-label">{{ tier_label }}</span>
                     <span class="tier-count-badge {{ badge_class }}">{{ tier_entities | length }}</span>
-                    <span class="text-xs text-gray-500">({{ tier_range }})</span>
+                    <span class="text-xs text-warm-500">({{ tier_range }})</span>
                 </div>
                 <div class="tier-body" id="tier-body-{{ tier_key }}">
                     {% for entity in tier_entities %}
@@ -74,8 +74,8 @@
         <!-- Action bar -->
         <div class="review-action-bar mt-4">
             <span class="review-counter" id="selection-counter"></span>
-            <div class="flex items-center gap-2" style="margin-left: auto;">
-                <label for="strategy" class="text-sm font-medium text-gray-700">Strategie:</label>
+            <div class="flex items-center gap-2 ml-auto">
+                <label for="strategy" class="text-sm font-medium text-warm-700">Strategie:</label>
                 <select id="strategy" name="strategy" class="input-field">
                     {% for s in strategies %}
                     <option value="{{ s }}">{{ s | capitalize }}</option>
@@ -109,13 +109,13 @@
 
         <div id="anon-loading" class="htmx-indicator text-center py-4">
             <div class="spinner"></div>
-            <p class="text-sm text-gray-500 mt-2">Anonymisiere...</p>
+            <p class="text-sm mt-2 text-warm-500">Anonymisiere...</p>
         </div>
 
         <div id="anonymized-output" class="mt-4"></div>
 
         {% else %}
-        <p class="text-gray-500 text-center py-4">Keine PII-Entit&auml;ten erkannt.</p>
+        <p class="no-results">Keine PII-Entit&auml;ten erkannt.</p>
         {% endif %}
     </div>
 
