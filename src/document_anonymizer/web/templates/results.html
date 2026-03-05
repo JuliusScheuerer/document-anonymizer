@@ -21,9 +21,9 @@
             <h3 class="diff-heading">Entit&auml;ten pr&uuml;fen und ausw&auml;hlen</h3>
 
             {% set tier_config = [
-                ("high", "Hohe Konfidenz", "tier-count-badge--high", "&#8805; 70%"),
-                ("medium", "Mittlere Konfidenz", "tier-count-badge--medium", "50&ndash;69%"),
-                ("low", "Niedrige Konfidenz", "tier-count-badge--low", "35&ndash;49%")
+                ("high", "Hohe Konfidenz", "tier-count-badge--high", "≥ 70%"),
+                ("medium", "Mittlere Konfidenz", "tier-count-badge--medium", "50–69%"),
+                ("low", "Niedrige Konfidenz", "tier-count-badge--low", "35–49%")
             ] %}
 
             {% for tier_key, tier_label, badge_class, tier_range in tier_config %}
