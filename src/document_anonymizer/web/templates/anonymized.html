@@ -1,9 +1,9 @@
 <div class="space-y-4">
     <div class="flex items-center justify-between">
-        <h3 class="summary-heading">Ergebnis</h3>
+        <h3 class="summary-heading">{{ _("anonymized.heading") }}</h3>
         <div class="stat-badge">
-            {{ entities_found }} Entit&auml;t{{ "en" if entities_found != 1 else "" }} anonymisiert
-            &middot; Strategie: {{ strategy }}
+            {{ _("anonymized.entities_anonymized", count=entities_found) }}
+            &middot; {{ _("anonymized.strategy", strategy=strategy) }}
             &middot; {{ processing_time_ms }} ms
         </div>
     </div>
@@ -11,11 +11,11 @@
     <!-- Side-by-side diff view -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-            <h4 class="diff-heading">Original (mit Markierungen)</h4>
+            <h4 class="diff-heading">{{ _("anonymized.original_heading") }}</h4>
             <div class="diff-panel diff-original">{{ highlighted_original | safe }}</div>
         </div>
         <div>
-            <h4 class="diff-heading">Anonymisiert</h4>
+            <h4 class="diff-heading">{{ _("anonymized.result_heading") }}</h4>
             <div class="diff-panel diff-anonymized">{{ anonymized_text }}</div>
         </div>
     </div>
@@ -25,7 +25,7 @@
             id="copy-btn"
             class="btn btn-secondary text-sm"
         >
-            Text kopieren
+            {{ _("anonymized.copy_btn") }}
         </button>
         {% if is_pdf and pdf_b64 %}
         <form id="redact-pdf-form-download" method="post" action="/redact-pdf" class="inline">
@@ -33,7 +33,7 @@
             <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
             <input type="hidden" name="selected_entities" value="{{ selected_entities }}">
             <button type="submit" class="btn btn-primary text-sm">
-                PDF mit Schw&auml;rzungen herunterladen
+                {{ _("anonymized.download_pdf_btn") }}
             </button>
         </form>
         {% endif %}

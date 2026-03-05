@@ -4,6 +4,12 @@
 (function () {
   "use strict";
 
+  // Fallback if i18n.js fails to load
+  var __t = window.__t || function (key) {
+    console.warn("i18n: __t not loaded, key:", key);
+    return key;
+  };
+
   // Range slider: sync displayed value on input
   document.addEventListener("input", function (e) {
     if (e.target && e.target.id === "score_threshold") {
@@ -39,12 +45,12 @@
     if (textarea) {
       textarea.value = EXAMPLE_TEXT;
       textarea.focus();
-      e.target.textContent = "Geladen!";
+      e.target.textContent = __t("app.example_loaded");
     } else {
-      e.target.textContent = "Fehler!";
+      e.target.textContent = __t("app.example_error");
     }
     setTimeout(function () {
-      e.target.textContent = "Beispieltext laden";
+      e.target.textContent = __t("index.example_btn");
     }, 1500);
   });
 
@@ -60,7 +66,7 @@
     var originalLabel = btn.textContent;
 
     function showFeedback() {
-      btn.textContent = "Kopiert!";
+      btn.textContent = __t("app.copied");
       setTimeout(function () {
         btn.textContent = originalLabel;
       }, 2000);
@@ -68,7 +74,7 @@
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(showFeedback).catch(function () {
-        btn.textContent = "Kopieren fehlgeschlagen";
+        btn.textContent = __t("app.copy_failed");
         setTimeout(function () { btn.textContent = originalLabel; }, 3000);
       });
     } else {
@@ -83,7 +89,7 @@
       if (success) {
         showFeedback();
       } else {
-        btn.textContent = "Kopieren fehlgeschlagen";
+        btn.textContent = __t("app.copy_failed");
         setTimeout(function () { btn.textContent = originalLabel; }, 3000);
       }
     }

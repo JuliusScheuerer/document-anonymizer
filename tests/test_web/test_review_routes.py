@@ -127,6 +127,7 @@ class TestAnonymizeWithSelectedEntities:
                 "pdf_b64": "",
                 "selected_entities": "{not valid json}",
             },
+            cookies={"lang": "de"},
         )
         assert r.status_code == 200
         assert "konnte nicht verarbeitet werden" in r.text
@@ -191,9 +192,9 @@ class TestAnonymizeWithSelectedEntities:
                 "pdf_b64": "",
                 "selected_entities": selected,
             },
+            cookies={"lang": "de"},
         )
         assert r.status_code == 200
-        # Skipped items now raise ValueError, returning error to user
         assert "konnten nicht" in r.text
         assert "<script>" not in r.text
 
@@ -221,6 +222,7 @@ class TestRedactPdfErrorPaths:
             },
         )
         assert r.status_code == 422
+        # No lang cookie set — default language (de) is used
         assert "Unvollständige Schwärzung" in r.text
 
     def test_redact_pdf_page_limit_returns_400(self) -> None:
@@ -320,6 +322,7 @@ class TestRedactPdfWithSelectedEntities:
                 "score_threshold": "0.35",
                 "selected_entities": "not valid json",
             },
+            cookies={"lang": "de"},
         )
         assert r.status_code == 400
         assert "konnte nicht verarbeitet werden" in r.text

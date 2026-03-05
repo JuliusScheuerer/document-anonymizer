@@ -28,6 +28,14 @@ from document_anonymizer.document.pdf_handler import (
     redact_pdf_with_entities,
 )
 from document_anonymizer.document.text_handler import detect_pii_in_text
+from document_anonymizer.i18n import (
+    DEFAULT_LANGUAGE,
+    Lang,
+    get_translations,
+    is_supported_lang,
+    jinja_translate,
+    translate,
+)
 from document_anonymizer.security.validation import (
     FileValidationError,
     validate_file_content,
@@ -55,8 +63,60 @@ class _EntityHighlight(TypedDict):
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
+templates.env.globals["_"] = jinja_translate
 
 web_router = APIRouter(tags=["web"])
+
+
+def _get_lang(request: Request) -> Lang:
+    """Extract language preference: query param > cookie > default."""
+    query_lang = request.query_params.get("lang", "")
+    if is_supported_lang(query_lang):
+        return query_lang
+    cookie_lang = request.cookies.get("lang", "")
+    if is_supported_lang(cookie_lang):
+        return cookie_lang
+    return DEFAULT_LANGUAGE
+
+
+def _template_response(
+    request: Request,
+    template_name: str,
+    context: dict[str, object] | None = None,
+    *,
+    status_code: int = 200,
+) -> HTMLResponse:
+    """Create a TemplateResponse with i18n context.
+
+    Includes translations_json for client-side ``window.__t()``.
+    Sets a lang cookie when the user switches language via query param.
+    Escapes ``</`` → ``<\\/`` to prevent script-breakout XSS.
+    """
+    lang = _get_lang(request)
+    ctx: dict[str, object] = {"lang": lang}
+    if context:
+        ctx.update(context)
+    # Provide all translations as JSON for client-side window.__t()
+    all_translations = get_translations(lang)
+    ctx["translations_json"] = json.dumps(all_translations, ensure_ascii=False).replace(
+        "</", r"<\/"
+    )
+
+    response = templates.TemplateResponse(
+        request, template_name, ctx, status_code=status_code
+    )
+    # Only set cookie when user explicitly requests a language via query param
+    query_lang = request.query_params.get("lang", "")
+    if is_supported_lang(query_lang):
+        response.set_cookie(
+            "lang",
+            query_lang,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=365 * 24 * 3600,
+        )
+    return response
 
 
 def _score_to_tier(score: float) -> Tier:
@@ -106,7 +166,9 @@ _MAX_SELECTED_ENTITIES = 500
 _MAX_ENTITY_TEXT_LENGTH = 1000
 
 
-def _parse_selected_entities_json(json_str: str, context: str) -> list[dict] | None:  # type: ignore[type-arg]
+def _parse_selected_entities_json(
+    json_str: str, context: str, lang: Lang = DEFAULT_LANGUAGE
+) -> list[dict] | None:  # type: ignore[type-arg]
     """Parse and validate the shared JSON envelope for selected entities.
 
     Returns None if json_str is empty (no review panel interaction).
@@ -119,19 +181,23 @@ def _parse_selected_entities_json(json_str: str, context: str) -> list[dict] | N
         raw = json.loads(json_str)
     except (json.JSONDecodeError, ValueError):
         logger.warning(f"selected_entities_{context}_invalid_json")
-        msg = "Entitätsauswahl konnte nicht verarbeitet werden."
-        raise ValueError(msg) from None
+        raise ValueError(translate("error.entity_parse_failed", lang=lang)) from None
 
     if not isinstance(raw, list) or len(raw) > _MAX_SELECTED_ENTITIES:
         count = len(raw) if isinstance(raw, list) else 0
         logger.warning(f"selected_entities_{context}_bad_format", count=count)
-        msg = "Entitätsauswahl hat ein ungültiges Format."
-        raise ValueError(msg)
+        raise ValueError(translate("error.entity_invalid_format", lang=lang))
 
     return raw
 
 
-def _report_skipped(skipped: int, total: int, accepted: int, context: str) -> None:
+def _report_skipped(
+    skipped: int,
+    total: int,
+    accepted: int,
+    context: str,
+    lang: Lang = DEFAULT_LANGUAGE,
+) -> None:
     """Log and raise if any items were skipped during entity reconstruction."""
     if skipped == 0:
         return
@@ -141,15 +207,13 @@ def _report_skipped(skipped: int, total: int, accepted: int, context: str) -> No
         total=total,
         accepted=accepted,
     )
-    msg = (
-        f"{skipped} von {total} ausgewählten Entitäten konnten nicht "
-        f"verarbeitet werden. Bitte erneut versuchen."
+    raise ValueError(
+        translate("error.entity_skipped", lang=lang, skipped=skipped, total=total)
     )
-    raise ValueError(msg)
 
 
 def _reconstruct_recognizer_results(
-    json_str: str, text: str
+    json_str: str, text: str, lang: Lang = DEFAULT_LANGUAGE
 ) -> list[RecognizerResult] | None:
     """Deserialize selected entities JSON back to Presidio RecognizerResult objects.
 
@@ -157,7 +221,7 @@ def _reconstruct_recognizer_results(
     Raises ValueError if json_str is non-empty but malformed, so callers
     can distinguish "no selection made" from "selection corrupted".
     """
-    raw = _parse_selected_entities_json(json_str, context="text")
+    raw = _parse_selected_entities_json(json_str, context="text", lang=lang)
     if raw is None:
         return None
 
@@ -210,19 +274,21 @@ def _reconstruct_recognizer_results(
             )
         )
 
-    _report_skipped(skipped, total=len(raw), accepted=len(results), context="text")
+    _report_skipped(
+        skipped, total=len(raw), accepted=len(results), context="text", lang=lang
+    )
     return results
 
 
 def _reconstruct_selected_entities_for_pdf(
-    json_str: str,
+    json_str: str, lang: Lang = DEFAULT_LANGUAGE
 ) -> list[RedactionTarget] | None:
     """Parse selected entities JSON into the format needed by redact_pdf_with_entities.
 
     Returns None only if json_str is empty (no review panel interaction).
     Raises ValueError if json_str is non-empty but malformed.
     """
-    raw = _parse_selected_entities_json(json_str, context="pdf")
+    raw = _parse_selected_entities_json(json_str, context="pdf", lang=lang)
     if raw is None:
         return None
 
@@ -242,7 +308,9 @@ def _reconstruct_selected_entities_for_pdf(
             continue
         targets.append(RedactionTarget(text=text))
 
-    _report_skipped(skipped, total=len(raw), accepted=len(targets), context="pdf")
+    _report_skipped(
+        skipped, total=len(raw), accepted=len(targets), context="pdf", lang=lang
+    )
     return targets
 
 
@@ -261,7 +329,7 @@ async def _require_htmx_header(request: Request) -> None:
 async def index(request: Request) -> HTMLResponse:
     """Main page with upload/paste interface."""
     strategies = [s.value for s in AnonymizationStrategy]
-    return templates.TemplateResponse(request, "index.html", {"strategies": strategies})
+    return _template_response(request, "index.html", {"strategies": strategies})
 
 
 _MAX_TEXT_LENGTH = 100_000
@@ -292,6 +360,7 @@ async def detect_form(
 ) -> HTMLResponse:
     """Handle detection form submission, return results fragment."""
     start = time.perf_counter()
+    lang = _get_lang(request)
     is_pdf = False
     pdf_b64 = ""
 
@@ -301,20 +370,19 @@ async def detect_form(
         try:
             mime_type = validate_file_content(content, filename=file.filename)
         except FileValidationError as e:
-            return templates.TemplateResponse(
-                request, "error_fragment.html", {"error": str(e)}
-            )
+            # error_fragment.html receives pre-translated error strings
+            return _template_response(request, "error_fragment.html", {"error": str(e)})
 
         if mime_type == "application/pdf":
             try:
                 validate_pdf_structure(content)
                 text = extract_text_from_pdf(content)
             except FileValidationError as e:
-                return templates.TemplateResponse(
+                return _template_response(
                     request, "error_fragment.html", {"error": str(e)}
                 )
             except PdfPageLimitExceededError as e:
-                return templates.TemplateResponse(
+                return _template_response(
                     request, "error_fragment.html", {"error": str(e)}
                 )
             is_pdf = True
@@ -325,10 +393,10 @@ async def detect_form(
     text = _normalize_line_endings(text)
 
     if not text.strip():
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": "Bitte Text eingeben oder Datei hochladen."},
+            {"error": translate("error.no_input", lang=lang)},
         )
 
     try:
@@ -355,10 +423,10 @@ async def detect_form(
         # Replace </ with <\/ to prevent </script> breakout (XSS).
         entities_json = json.dumps(entities, ensure_ascii=False).replace("</", r"<\/")
 
-        highlighted = _build_highlighted_text(text, entities)
+        highlighted = _build_highlighted_text(text, entities, lang=lang)
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "results.html",
             {
@@ -378,10 +446,14 @@ async def detect_form(
     except Exception:
         logger.exception("detect_form_error")
         request_id = getattr(request.state, "request_id", "unknown")
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": f"Fehler bei der PII-Erkennung. (Referenz: {request_id})"},
+            {
+                "error": translate(
+                    "error.detection_failed", lang=lang, request_id=request_id
+                )
+            },
         )
 
 
@@ -403,14 +475,21 @@ async def anonymize_form(
 ) -> HTMLResponse:
     """Handle anonymization form submission."""
     text = _normalize_line_endings(text)
+    lang = _get_lang(request)
 
     try:
         strat = AnonymizationStrategy(strategy)
     except ValueError:
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": f"Unbekannte Strategie: {html.escape(strategy)}"},
+            {
+                "error": translate(
+                    "error.unknown_strategy",
+                    lang=lang,
+                    strategy=html.escape(strategy),
+                )
+            },
         )
 
     try:
@@ -418,9 +497,11 @@ async def anonymize_form(
 
         # Use pre-selected entities if provided, otherwise re-detect
         try:
-            detections = _reconstruct_recognizer_results(selected_entities, text)
+            detections = _reconstruct_recognizer_results(
+                selected_entities, text, lang=lang
+            )
         except ValueError as e:
-            return templates.TemplateResponse(
+            return _template_response(
                 request,
                 "error_fragment.html",
                 {"error": str(e)},
@@ -445,11 +526,13 @@ async def anonymize_form(
             )
             for idx, r in enumerate(sorted_detections)
         ]
-        highlighted_original = _build_highlighted_text(text, entities_for_highlight)
+        highlighted_original = _build_highlighted_text(
+            text, entities_for_highlight, lang=lang
+        )
 
         elapsed_ms = (time.perf_counter() - start) * 1000
 
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "anonymized.html",
             {
@@ -468,10 +551,14 @@ async def anonymize_form(
     except Exception:
         logger.exception("anonymize_form_error")
         request_id = getattr(request.state, "request_id", "unknown")
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": f"Fehler bei der Anonymisierung. (Referenz: {request_id})"},
+            {
+                "error": translate(
+                    "error.anonymization_failed", lang=lang, request_id=request_id
+                )
+            },
         )
 
 
@@ -484,6 +571,7 @@ async def redact_pdf_form(
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> Response:
     """Handle PDF redaction — returns redacted PDF for download."""
+    lang = _get_lang(request)
     try:
         pdf_bytes = base64.b64decode(pdf_b64)
         validate_file_content(pdf_bytes)
@@ -491,9 +579,11 @@ async def redact_pdf_form(
 
         # Use pre-selected entities if provided
         try:
-            selected = _reconstruct_selected_entities_for_pdf(selected_entities)
+            selected = _reconstruct_selected_entities_for_pdf(
+                selected_entities, lang=lang
+            )
         except ValueError as e:
-            return templates.TemplateResponse(
+            return _template_response(
                 request,
                 "error_fragment.html",
                 {"error": str(e)},
@@ -507,21 +597,21 @@ async def redact_pdf_form(
                 analyzer, pdf_bytes, score_threshold=score_threshold
             )
     except binascii.Error:
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": "Ungültige PDF-Daten. Bitte laden Sie die Datei erneut hoch."},
+            {"error": translate("error.invalid_pdf", lang=lang)},
             status_code=400,
         )
     except FileValidationError as e:
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
             {"error": str(e)},
             status_code=400,
         )
     except PdfPageLimitExceededError as e:
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
             {"error": str(e)},
@@ -533,15 +623,15 @@ async def redact_pdf_form(
             unredacted=e.unredacted_count,
             total=e.total_count,
         )
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
             {
-                "error": (
-                    f"Unvollständige Schwärzung: {e.unredacted_count} von "
-                    f"{e.total_count} erkannten PII-Entitäten konnten im PDF "
-                    f"nicht visuell lokalisiert werden. "
-                    f"Manuelle Überprüfung empfohlen."
+                "error": translate(
+                    "error.incomplete_redaction",
+                    lang=lang,
+                    unredacted=e.unredacted_count,
+                    total=e.total_count,
                 ),
             },
             status_code=422,
@@ -549,10 +639,14 @@ async def redact_pdf_form(
     except Exception:
         logger.exception("redact_pdf_error")
         request_id = getattr(request.state, "request_id", "unknown")
-        return templates.TemplateResponse(
+        return _template_response(
             request,
             "error_fragment.html",
-            {"error": f"PDF-Schwärzung fehlgeschlagen. (Referenz: {request_id})"},
+            {
+                "error": translate(
+                    "error.pdf_redaction_failed", lang=lang, request_id=request_id
+                )
+            },
             status_code=500,
         )
 
@@ -563,12 +657,17 @@ async def redact_pdf_form(
     )
 
 
-def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
+def _build_highlighted_text(
+    text: str,
+    entities: list[_EntityHighlight],
+    lang: Lang = DEFAULT_LANGUAGE,
+) -> str:
     """Build HTML with color-coded PII highlights.
 
     Walks through the text segment by segment, escaping non-entity gaps
     and entity content individually, then wrapping entities in <mark> tags.
-    Overlapping entities are skipped (the first span by start position wins).
+    Overlapping entities are skipped (earliest start position wins; for ties,
+    the longest span wins).
     """
     if not entities:
         return html.escape(text)
@@ -599,7 +698,8 @@ def _build_highlighted_text(text: str, entities: list[_EntityHighlight]) -> str:
         original = text[start:end]
         safe_type = html.escape(entity_type.lower().replace("_", "-"))
         css_class = f"entity-{safe_type}"
-        tooltip = f"{html.escape(entity_type)} (Konfidenz: {score:.0%})"
+        confidence = translate("common.confidence", lang=lang, score=f"{score:.0%}")
+        tooltip = f"{html.escape(entity_type)} ({html.escape(confidence)})"
         parts.append(
             f'<mark class="entity-highlight {css_class}" '
             f'data-entity-index="{int(entity_index)}" '

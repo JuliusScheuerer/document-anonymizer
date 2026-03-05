@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,8 +10,10 @@
     <meta property="og:description" content="Privacy-first document anonymization with German PII detection">
     <meta property="og:type" content="website">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128274;</text></svg>">
-    <title>{% block title %}Document Anonymizer{% endblock %}</title>
+    <title>{% block title %}{{ _("brand.name") }}{% endblock %}</title>
     <script src="/static/js/htmx.min.js"></script>
+    <script src="/static/js/i18n.js"></script>
+    <script>window.__translations = {{ translations_json | safe }};</script>
     <script src="/static/js/app.js" defer></script>
     <link rel="stylesheet" href="/static/css/app.css">
     <link rel="preload" href="/static/fonts/instrument-serif-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -24,16 +26,21 @@
         <div class="max-w-5xl mx-auto px-4 py-4 header-row">
             <a href="/" class="flex items-center gap-2 text-lg font-semibold no-underline text-warm-800">
                 <span class="accent-dot"></span>
-                Document Anonymizer
+                {{ _("brand.name") }}
             </a>
-            <span class="text-sm text-warm-500">German PII Detection &amp; Redaction</span>
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-warm-500">{{ _("brand.subtitle") }}</span>
+                <span class="text-warm-300">|</span>
+                <a href="/?lang=de" class="text-xs no-underline {% if lang == 'de' %}font-bold text-warm-800{% else %}text-warm-500{% endif %}">DE</a>
+                <a href="/?lang=en" class="text-xs no-underline {% if lang == 'en' %}font-bold text-warm-800{% else %}text-warm-500{% endif %}">EN</a>
+            </div>
         </div>
     </header>
 
     <noscript>
         <div class="max-w-5xl mx-auto px-4 py-4">
             <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p class="text-sm text-red-800">JavaScript ist f&uuml;r die interaktive Oberfl&auml;che erforderlich. Bitte aktivieren Sie JavaScript oder nutzen Sie die <a href="/docs">REST API</a>.</p>
+                <p class="text-sm text-red-800">{{ _("noscript.text") }} <a href="/docs">{{ _("noscript.link") }}</a>.</p>
             </div>
         </div>
     </noscript>
@@ -44,7 +51,7 @@
 
     <footer class="border-t mt-12">
         <div class="max-w-5xl mx-auto px-4 py-4 text-center warm-footer">
-            Zero-persistence architecture &middot; No external API calls &middot; Physical PDF redaction
+            {{ _("footer.text") }}
         </div>
     </footer>
 </body>

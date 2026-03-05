@@ -74,6 +74,21 @@ class TestBuildHighlightedText:
         assert result.count("entity-highlight") == 1
         assert "Max Mustermann" in result
 
+    def test_english_tooltip(self) -> None:
+        """Verify lang='en' produces English tooltip text."""
+        text = "Max Mustermann"
+        entities = [_ent("PERSON", 0, 14, 0.85, "Max Mustermann")]
+        result = _build_highlighted_text(text, entities, lang="en")  # type: ignore[arg-type]
+        assert "Confidence:" in result
+        assert "Konfidenz:" not in result
+
+    def test_german_tooltip_default(self) -> None:
+        """Default lang produces German tooltip text."""
+        text = "Max Mustermann"
+        entities = [_ent("PERSON", 0, 14, 0.85, "Max Mustermann")]
+        result = _build_highlighted_text(text, entities)  # type: ignore[arg-type]
+        assert "Konfidenz:" in result
+
     def test_adjacent_entities_not_merged(self) -> None:
         """Adjacent (non-overlapping) entities should each get their own highlight."""
         text = "AB"
