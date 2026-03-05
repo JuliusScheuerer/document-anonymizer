@@ -10,20 +10,24 @@
     <meta property="og:description" content="Privacy-first document anonymization with German PII detection">
     <meta property="og:type" content="website">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128274;</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <title>{% block title %}Document Anonymizer{% endblock %}</title>
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/app.js" defer></script>
     <link rel="stylesheet" href="/static/css/app.css">
     <noscript><style>.htmx-indicator{display:none!important}</style></noscript>
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen">
-    <header class="bg-white border-b border-gray-200 shadow-sm">
+<body class="warm-body min-h-screen">
+    <div class="header-accent"></div>
+    <header class="warm-header">
         <div class="max-w-5xl mx-auto px-4 py-4 header-row">
-            <a href="/" class="flex items-center gap-2 text-lg font-semibold text-gray-800 no-underline">
-                <span class="text-2xl">&#128274;</span>
+            <a href="/" class="flex items-center gap-2 text-lg font-semibold no-underline" style="color: var(--warm-800);">
+                <span class="accent-dot"></span>
                 Document Anonymizer
             </a>
-            <span class="text-sm text-gray-500">German PII Detection &amp; Redaction</span>
+            <span class="text-sm" style="color: var(--warm-400);">German PII Detection &amp; Redaction</span>
         </div>
     </header>
 
@@ -39,8 +43,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="border-t border-gray-200 mt-12">
-        <div class="max-w-5xl mx-auto px-4 py-4 text-center text-sm text-gray-500">
+    <footer class="border-t mt-12">
+        <div class="max-w-5xl mx-auto px-4 py-4 text-center warm-footer">
             Zero-persistence architecture &middot; No external API calls &middot; Physical PDF redaction
         </div>
     </footer>
