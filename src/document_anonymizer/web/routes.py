@@ -168,6 +168,7 @@ def _reconstruct_recognizer_results(
     for item in raw:
         if not isinstance(item, dict):
             skipped += 1
+            logger.debug("entity_skip_not_dict")
             continue
         try:
             start = int(item["start"])
@@ -175,20 +176,29 @@ def _reconstruct_recognizer_results(
             score = float(item["score"])
             if not (0.0 <= score <= 1.0):
                 skipped += 1
+                logger.debug("entity_skip_score_range", score=score)
                 continue
             entity_type = str(item["entity_type"])
         except (KeyError, ValueError, TypeError):
             skipped += 1
+            logger.debug("entity_skip_parse_error")
             continue
 
         # Validate bounds
         if start < 0 or end <= start or end > text_len:
             skipped += 1
+            logger.debug(
+                "entity_skip_bounds",
+                start=start,
+                end=end,
+                text_len=text_len,
+            )
             continue
 
         # Validate entity type format (prevent XSS in CSS classes)
         if not _ENTITY_TYPE_RE.match(entity_type):
             skipped += 1
+            logger.debug("entity_skip_type_format", entity_type_len=len(entity_type))
             continue
 
         results.append(
@@ -221,10 +231,14 @@ def _reconstruct_selected_entities_for_pdf(
     for item in raw:
         if not isinstance(item, dict) or "text" not in item:
             skipped += 1
+            logger.debug("pdf_entity_skip_invalid_item")
             continue
         text = str(item["text"]).strip()
         if not text or len(text) > _MAX_ENTITY_TEXT_LENGTH:
             skipped += 1
+            logger.debug(
+                "pdf_entity_skip_text_validation", text_len=len(str(item["text"]))
+            )
             continue
         targets.append(RedactionTarget(text=text))
 
@@ -251,6 +265,17 @@ async def index(request: Request) -> HTMLResponse:
 
 
 _MAX_TEXT_LENGTH = 100_000
+
+
+def _normalize_line_endings(text: str) -> str:
+    """Normalize CRLF and CR line endings to LF.
+
+    Browser form submissions may encode line endings as CRLF, but when text
+    is later embedded in an HTML hidden input's value attribute, the HTML
+    parser normalizes CRLF and CR to LF. Normalizing upfront ensures entity
+    positions remain valid across the detect -> anonymize round-trip.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 @web_router.post(
@@ -296,6 +321,8 @@ async def detect_form(
             pdf_b64 = base64.b64encode(content).decode()
         else:
             text = content.decode("utf-8", errors="replace")
+
+    text = _normalize_line_endings(text)
 
     if not text.strip():
         return templates.TemplateResponse(
@@ -375,6 +402,8 @@ async def anonymize_form(
     anonymizer: AnonymizerEngine = Depends(get_anonymizer),  # noqa: B008
 ) -> HTMLResponse:
     """Handle anonymization form submission."""
+    text = _normalize_line_endings(text)
+
     try:
         strat = AnonymizationStrategy(strategy)
     except ValueError:

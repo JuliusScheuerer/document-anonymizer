@@ -11,7 +11,10 @@
 
     <form action="/detect" method="post" enctype="multipart/form-data" hx-post="/detect" hx-target="#results" hx-indicator="#loading" hx-encoding="multipart/form-data" class="warm-card p-4 space-y-4">
         <div>
-            <label for="text" class="warm-label">Text</label>
+            <div class="flex items-center justify-between mb-1">
+                <label for="text" class="warm-label" style="margin-bottom: 0;">Text</label>
+                <a href="#" id="load-example-btn" class="text-xs example-link">Beispieltext laden</a>
+            </div>
             <textarea
                 id="text"
                 name="text"

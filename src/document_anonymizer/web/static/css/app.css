@@ -794,6 +794,19 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Example text link */
+.example-link {
+  text-decoration: none;
+  color: var(--warm-400);
+  opacity: 0.7;
+  transition: opacity 0.15s, color 0.15s;
+}
+.example-link:hover {
+  opacity: 1;
+  color: var(--amber-600);
+  text-decoration: underline;
+}
+
 /* Label styling */
 .warm-label {
   display: block;
