@@ -20,23 +20,6 @@
   src: url('/static/fonts/instrument-serif-normal-latin-ext.woff2') format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
-@font-face {
-  font-family: 'Instrument Serif';
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/static/fonts/instrument-serif-italic-latin.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Instrument Serif';
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/static/fonts/instrument-serif-italic-latin-ext.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
 /* Work Sans — clean body font (variable weight, subsetting latin + latin-ext) */
 @font-face {
   font-family: 'Work Sans';
@@ -60,17 +43,23 @@
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html {
-  font-family: 'Work Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.6;
+  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 body { min-height: 100vh; }
 
 /* ============================================================
-   2. COLOR PALETTE (CSS Custom Properties)
+   2. DESIGN TOKENS (CSS Custom Properties)
    ============================================================ */
 :root {
+  /* Font stacks */
+  --font-body: 'Work Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Instrument Serif', 'Georgia', serif;
+  --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+
   /* Warm neutrals */
   --warm-50:  #FAFAF5;
   --warm-100: #F5F5F0;
@@ -83,15 +72,21 @@ body { min-height: 100vh; }
   --warm-800: #292524;
   --warm-900: #1C1917;
 
-  /* Amber / terracotta accents */
+  /* Amber accents */
   --amber-50:  #FFFBEB;
-  --amber-100: #FEF3C7;
   --amber-200: #FCD34D;
   --amber-300: #FBBF24;
   --amber-400: #F59E0B;
   --amber-500: #D97706;
   --amber-600: #B45309;
   --amber-700: #92400E;
+  --amber-800: #78350F;
+
+  /* Composable RGB channels for rgba() — var() substitution happens before
+     function parsing, so rgba(var(--x), 0.4) works in all modern browsers
+     (Chrome 49+, Firefox 31+, Safari 9.1+). */
+  --amber-focus-ring: 252, 211, 77;
+  --warm-shadow: 120, 113, 108;
 
   /* Entity badge warm pastels */
   --dusty-rose-bg:   #FBEAEF;
@@ -115,7 +110,7 @@ body { min-height: 100vh; }
   --mauve-bg:        #F2EAF0;
   --mauve-text:      #7D4E71;
 
-  /* Semantic (error) */
+  /* Semantic colors */
   --red-50:    #FEF2F2;
   --red-200:   #FECACA;
   --red-800:   #991B1B;
@@ -141,8 +136,10 @@ body { min-height: 100vh; }
 .mb-1 { margin-bottom: 0.25rem; }
 .mb-3 { margin-bottom: 0.75rem; }
 .ml-2 { margin-left: 0.5rem; }
+.ml-auto { margin-left: auto; }
 .pr-4 { padding-right: 1rem; }
 .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.inline { display: inline; }
 .w-full { width: 100%; }
 .w-16 { width: 4rem; }
 .w-48 { width: 12rem; }
@@ -184,14 +181,8 @@ body { min-height: 100vh; }
 /* ============================================================
    5. TYPOGRAPHY
    ============================================================ */
-.text-2xl {
-  font-family: 'Instrument Serif', 'Georgia', serif;
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-  letter-spacing: -0.01em;
-}
 .text-lg {
-  font-family: 'Instrument Serif', 'Georgia', serif;
+  font-family: var(--font-display);
   font-size: 1.25rem;
   line-height: 1.75rem;
 }
@@ -201,7 +192,7 @@ body { min-height: 100vh; }
 .font-bold { font-weight: 700; }
 .font-semibold { font-weight: 600; }
 .font-medium { font-weight: 500; }
-.font-mono { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; }
+.font-mono { font-family: var(--font-mono); }
 .text-center { text-align: center; }
 .text-left { text-align: left; }
 .whitespace-pre-wrap { white-space: pre-wrap; }
@@ -211,17 +202,11 @@ body { min-height: 100vh; }
 /* ============================================================
    6. COLORS
    ============================================================ */
-.bg-gray-50 { background-color: var(--warm-50); }
-.bg-gray-200 { background-color: var(--warm-200); }
-.bg-white { background-color: #fff; }
 .bg-red-50 { background-color: var(--red-50); }
-.bg-green-50 { background-color: var(--green-50); }
-.bg-blue-600 { background-color: var(--amber-500); }
-.text-gray-500 { color: var(--warm-400); }
-.text-gray-600 { color: var(--warm-600); }
-.text-gray-700 { color: var(--warm-700); }
-.text-gray-800 { color: var(--warm-800); }
-.text-gray-900 { color: var(--warm-800); }
+.text-warm-800 { color: var(--warm-800); }
+.text-warm-700 { color: var(--warm-700); }
+.text-warm-500 { color: var(--warm-500); }
+.text-red-800 { color: var(--red-800); }
 
 /* ============================================================
    7. BORDERS & SHADOWS
@@ -229,14 +214,10 @@ body { min-height: 100vh; }
 .border { border: 1px solid var(--warm-200); }
 .border-b { border-bottom: 1px solid var(--warm-200); }
 .border-t { border-top: 1px solid var(--warm-200); }
-.border-gray-100 { border-color: var(--warm-100); }
-.border-gray-200 { border-color: var(--warm-200); }
 .border-red-200 { border-color: var(--red-200); }
-.border-green-200 { border-color: var(--green-200); }
 .rounded { border-radius: 0.375rem; }
 .rounded-lg { border-radius: 0.625rem; }
 .rounded-full { border-radius: 9999px; }
-.shadow-sm { box-shadow: 0 1px 3px rgba(120, 113, 108, 0.08); }
 
 /* ============================================================
    8. OVERFLOW & SIZING
@@ -255,7 +236,7 @@ body { min-height: 100vh; }
   border-radius: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  font-family: 'Work Sans', system-ui, sans-serif;
+  font-family: var(--font-body);
   color: var(--warm-800);
   background: #fff;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -263,7 +244,7 @@ body { min-height: 100vh; }
 .input-field:focus {
   outline: none;
   border-color: var(--amber-400);
-  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.35);
+  box-shadow: 0 0 0 3px rgba(var(--amber-focus-ring), 0.35);
 }
 .input-field::placeholder {
   color: var(--warm-400);
@@ -271,7 +252,7 @@ body { min-height: 100vh; }
 select.input-field { width: auto; min-width: 10rem; }
 textarea.input-field {
   resize: vertical;
-  font-family: 'Work Sans', system-ui, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.7;
 }
 
@@ -286,7 +267,7 @@ textarea.input-field {
   border-radius: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
-  font-family: 'Work Sans', system-ui, sans-serif;
+  font-family: var(--font-body);
   cursor: pointer;
   border: 1px solid transparent;
   transition: background-color 0.2s, box-shadow 0.2s, transform 0.1s;
@@ -295,16 +276,16 @@ textarea.input-field {
   transform: translateY(1px);
 }
 .btn-primary {
-  background-color: var(--amber-500);
+  background-color: var(--amber-700);
   color: #fff;
-  border-color: var(--amber-600);
+  border-color: var(--amber-700);
 }
 .btn-primary:hover {
-  background-color: var(--amber-600);
+  background-color: var(--amber-800);
 }
 .btn-primary:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.4);
+  box-shadow: 0 0 0 3px rgba(var(--amber-focus-ring), 0.4);
 }
 .btn-secondary {
   background-color: transparent;
@@ -317,7 +298,7 @@ textarea.input-field {
 }
 .btn-secondary:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.3);
+  box-shadow: 0 0 0 3px rgba(var(--amber-focus-ring), 0.3);
 }
 
 /* ============================================================
@@ -398,7 +379,7 @@ textarea.input-field {
 .diff-panel {
   padding: 1rem;
   border-radius: 0.5rem;
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
   white-space: pre-wrap;
   word-break: break-word;
@@ -406,11 +387,11 @@ textarea.input-field {
   line-height: 1.7;
 }
 .diff-original {
-  background: #FEF2F2;
+  background: var(--red-50);
   border: 1px solid var(--red-200);
 }
 .diff-anonymized {
-  background: #F0FDF4;
+  background: var(--green-50);
   border: 1px solid var(--green-200);
 }
 
@@ -434,7 +415,7 @@ textarea.input-field {
 /* ============================================================
    15. MONO TEXT & TABLE
    ============================================================ */
-.mono-text { font-family: 'SF Mono', 'Cascadia Code', monospace; }
+.mono-text { font-family: var(--font-mono); }
 table { border-collapse: collapse; }
 th, td { text-align: left; }
 
@@ -457,17 +438,7 @@ th, td { text-align: left; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
-   17. ERROR TEXT
-   ============================================================ */
-.text-red-800 { color: var(--red-800); }
-
-/* ============================================================
-   18. INLINE DISPLAY
-   ============================================================ */
-.inline { display: inline; }
-
-/* ============================================================
-   19. RANGE INPUT (Amber themed)
+   17. RANGE INPUT (Amber themed)
    ============================================================ */
 input[type="range"] {
   -webkit-appearance: none;
@@ -486,12 +457,12 @@ input[type="range"]::-webkit-slider-thumb {
   border: 2px solid #fff;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(120, 113, 108, 0.25);
+  box-shadow: 0 1px 4px rgba(var(--warm-shadow), 0.25);
   transition: background-color 0.2s, box-shadow 0.2s;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--amber-600);
-  box-shadow: 0 1px 6px rgba(120, 113, 108, 0.35);
+  box-shadow: 0 1px 6px rgba(var(--warm-shadow), 0.35);
 }
 input[type="range"]::-moz-range-thumb {
   width: 18px;
@@ -500,14 +471,14 @@ input[type="range"]::-moz-range-thumb {
   border: 2px solid #fff;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 1px 4px rgba(120, 113, 108, 0.25);
+  box-shadow: 0 1px 4px rgba(var(--warm-shadow), 0.25);
 }
 input[type="range"]:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.4);
+  box-shadow: 0 0 0 3px rgba(var(--amber-focus-ring), 0.4);
 }
 
 /* ============================================================
-   20. REVIEW PANEL — TIER SECTIONS
+   18. REVIEW PANEL — TIER SECTIONS
    ============================================================ */
 .tier-section {
   border: 1px solid var(--warm-200);
@@ -576,7 +547,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 .entity-row:hover { background: var(--warm-50); }
 
 .entity-row__text {
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
   flex: 1;
   min-width: 0;
@@ -630,17 +601,16 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 }
 
 /* ============================================================
-   21. MOBILE ADJUSTMENTS
+   19. MOBILE ADJUSTMENTS
    ============================================================ */
 @media (max-width: 639px) {
   .review-action-bar { flex-direction: column; align-items: stretch; }
   .entity-row { flex-wrap: wrap; }
   .header-row { gap: 0.25rem; }
-  .text-2xl { font-size: 1.5rem; }
 }
 
 /* ============================================================
-   22. WARM STUDIO — CUSTOM ENHANCEMENTS
+   20. THEME COMPONENTS
    ============================================================ */
 
 /* Card component */
@@ -648,7 +618,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
   background: #fff;
   border: 1px solid var(--warm-200);
   border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(120, 113, 108, 0.08);
+  box-shadow: 0 1px 3px rgba(var(--warm-shadow), 0.08);
 }
 
 /* File upload styling */
@@ -667,7 +637,7 @@ input[type="file"].input-field:hover {
 }
 input[type="file"].input-field:focus {
   border-color: var(--amber-400);
-  box-shadow: 0 0 0 3px rgba(252, 211, 77, 0.35);
+  box-shadow: 0 0 0 3px rgba(var(--amber-focus-ring), 0.35);
 }
 
 /* Header accent bar */
@@ -686,7 +656,7 @@ input[type="file"].input-field:focus {
 .warm-header {
   background: #fff;
   border-bottom: 1px solid var(--warm-200);
-  box-shadow: 0 1px 3px rgba(120, 113, 108, 0.06);
+  box-shadow: 0 1px 3px rgba(var(--warm-shadow), 0.06);
 }
 
 /* Logo accent dot */
@@ -702,7 +672,7 @@ input[type="file"].input-field:focus {
 
 /* Section heading with serif */
 .section-heading {
-  font-family: 'Instrument Serif', 'Georgia', serif;
+  font-family: var(--font-display);
   font-size: 1.875rem;
   line-height: 2.25rem;
   color: var(--warm-800);
@@ -719,14 +689,14 @@ input[type="file"].input-field:focus {
 
 /* Footer styling */
 .warm-footer {
-  color: var(--warm-400);
+  color: var(--warm-500);
   font-size: 0.8125rem;
   letter-spacing: 0.01em;
 }
 
 /* Summary card heading */
 .summary-heading {
-  font-family: 'Instrument Serif', 'Georgia', serif;
+  font-family: var(--font-display);
   font-size: 1.25rem;
   color: var(--warm-800);
 }
@@ -737,7 +707,7 @@ input[type="file"].input-field:focus {
   border: 1px solid var(--warm-200);
   border-radius: 0.5rem;
   padding: 1rem;
-  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.8125rem;
   line-height: 1.7;
   white-space: pre-wrap;
@@ -758,7 +728,7 @@ input[type="file"].input-field:focus {
 .no-results {
   text-align: center;
   padding: 2rem 1rem;
-  color: var(--warm-400);
+  color: var(--warm-500);
   font-size: 0.9375rem;
 }
 
@@ -789,15 +759,10 @@ a:hover {
   outline-offset: 2px;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
 /* Example text link */
 .example-link {
   text-decoration: none;
-  color: var(--warm-400);
+  color: var(--warm-500);
   opacity: 0.7;
   transition: opacity 0.15s, color 0.15s;
 }

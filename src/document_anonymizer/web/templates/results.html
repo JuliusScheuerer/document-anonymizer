@@ -41,7 +41,7 @@
                     >
                     <span class="tier-label">{{ tier_label }}</span>
                     <span class="tier-count-badge {{ badge_class }}">{{ tier_entities | length }}</span>
-                    <span class="text-xs" style="color: var(--warm-400);">({{ tier_range }})</span>
+                    <span class="text-xs text-warm-500">({{ tier_range }})</span>
                 </div>
                 <div class="tier-body" id="tier-body-{{ tier_key }}">
                     {% for entity in tier_entities %}
@@ -74,8 +74,8 @@
         <!-- Action bar -->
         <div class="review-action-bar mt-4">
             <span class="review-counter" id="selection-counter"></span>
-            <div class="flex items-center gap-2" style="margin-left: auto;">
-                <label for="strategy" class="text-sm font-medium" style="color: var(--warm-700);">Strategie:</label>
+            <div class="flex items-center gap-2 ml-auto">
+                <label for="strategy" class="text-sm font-medium text-warm-700">Strategie:</label>
                 <select id="strategy" name="strategy" class="input-field">
                     {% for s in strategies %}
                     <option value="{{ s }}">{{ s | capitalize }}</option>
@@ -109,7 +109,7 @@
 
         <div id="anon-loading" class="htmx-indicator text-center py-4">
             <div class="spinner"></div>
-            <p class="text-sm mt-2" style="color: var(--warm-500);">Anonymisiere...</p>
+            <p class="text-sm mt-2 text-warm-500">Anonymisiere...</p>
         </div>
 
         <div id="anonymized-output" class="mt-4"></div>

@@ -245,8 +245,22 @@ class TestCsrfProtection:
 
 class TestSecurityHeaders:
     def test_cache_control_headers(self) -> None:
-        """Responses should include anti-caching headers to prevent PII leakage."""
+        """Dynamic responses must have anti-caching headers (PII)."""
         r = client.get("/")
+        assert r.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+        assert r.headers["Pragma"] == "no-cache"
+
+    def test_pii_response_not_cached(self) -> None:
+        """POST endpoints returning PII must have no-store cache headers."""
+        r = client.post(
+            "/detect",
+            headers=_HTMX_HEADERS,
+            data={
+                "text": "Herr Max Mustermann, IBAN DE89 3704 0044 0532 0130 00",
+                "score_threshold": "0.35",
+            },
+        )
+        assert r.status_code == 200
         assert r.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
         assert r.headers["Pragma"] == "no-cache"
 
@@ -257,11 +271,18 @@ class TestSecurityHeaders:
         assert r.headers["X-Frame-Options"] == "DENY"
         assert "no-referrer" in r.headers["Referrer-Policy"]
 
+    def test_static_assets_cached(self) -> None:
+        """Static assets should have a long cache lifetime, not no-store."""
+        r = client.get("/static/css/app.css")
+        assert r.headers["Cache-Control"] == "public, max-age=86400"
+        assert "Pragma" not in r.headers
+
     def test_csp_header_present(self) -> None:
         r = client.get("/")
         csp = r.headers["Content-Security-Policy"]
         assert "default-src 'self'" in csp
         assert "frame-ancestors 'none'" in csp
+        assert "font-src 'self'" in csp
 
 
 class TestFormValidation:

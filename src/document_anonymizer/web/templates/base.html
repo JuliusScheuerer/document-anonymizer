@@ -14,17 +14,19 @@
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/app.js" defer></script>
     <link rel="stylesheet" href="/static/css/app.css">
+    <link rel="preload" href="/static/fonts/instrument-serif-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/work-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
     <noscript><style>.htmx-indicator{display:none!important}</style></noscript>
 </head>
 <body class="warm-body min-h-screen">
     <div class="header-accent"></div>
     <header class="warm-header">
         <div class="max-w-5xl mx-auto px-4 py-4 header-row">
-            <a href="/" class="flex items-center gap-2 text-lg font-semibold no-underline" style="color: var(--warm-800);">
+            <a href="/" class="flex items-center gap-2 text-lg font-semibold no-underline text-warm-800">
                 <span class="accent-dot"></span>
                 Document Anonymizer
             </a>
-            <span class="text-sm" style="color: var(--warm-400);">German PII Detection &amp; Redaction</span>
+            <span class="text-sm text-warm-500">German PII Detection &amp; Redaction</span>
         </div>
     </header>
 
