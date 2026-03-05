@@ -47,6 +47,7 @@ class TestDetectForm:
             "/detect",
             headers=_HTMX_HEADERS,
             data={"text": "", "score_threshold": "0.35"},
+            cookies={"lang": "de"},
         )
         assert r.status_code == 200
         assert "Bitte Text eingeben" in r.text
@@ -144,6 +145,7 @@ class TestAnonymizeForm:
                 "is_pdf": "false",
                 "pdf_b64": "",
             },
+            cookies={"lang": "de"},
         )
         assert r.status_code == 200
         assert "Unbekannte Strategie" in r.text
@@ -214,6 +216,7 @@ class TestRedactPdf:
             "/redact-pdf",
             data={"pdf_b64": "!!!not-valid-base64!!!", "score_threshold": "0.35"},
             headers=_HTMX_HEADERS,
+            cookies={"lang": "de"},
         )
         assert r.status_code == 400
         assert "PDF-Daten" in r.text

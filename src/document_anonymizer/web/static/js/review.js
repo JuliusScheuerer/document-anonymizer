@@ -9,9 +9,16 @@
  * - Tier collapse/expand
  * - Fetch-based PDF redaction download (binary blob via fetch + HX-Request header)
  * - Zero-selection warning before form submission
+ * - Internationalized UI strings via window.__t()
  */
 (function () {
   "use strict";
+
+  // Fallback if i18n.js fails to load
+  var __t = window.__t || function (key) {
+    console.warn("i18n: __t not loaded, key:", key);
+    return key;
+  };
 
   var entities = [];
   var selected = {}; // index -> boolean
@@ -23,12 +30,12 @@
     try {
       entities = JSON.parse(dataEl.textContent);
     } catch (e) {
+      console.error("Failed to parse entities data:", e);
       var panel = document.getElementById("review-panel");
       if (panel) {
         var errDiv = document.createElement("div");
         errDiv.className = "bg-red-50 border border-red-200 rounded-lg p-4";
-        errDiv.textContent =
-          "Fehler beim Laden der Entit\u00e4tsdaten. Bitte f\u00fchren Sie die Erkennung erneut durch.";
+        errDiv.textContent = __t("review.entity_load_error");
         panel.prepend(errDiv);
       }
       var anonymizeBtn = document.getElementById("anonymize-btn");
@@ -152,7 +159,7 @@
     if (e.detail && e.detail.path === "/anonymize-form") {
       var count = countSelected();
       if (count === 0) {
-        if (!confirm("Keine Entitäten ausgewählt. Trotzdem fortfahren?")) {
+        if (!confirm(__t("review.no_selection_warning"))) {
           e.preventDefault();
         }
       }
@@ -246,7 +253,7 @@
     var total = entities.length;
     var counter = document.getElementById("selection-counter");
     if (counter) {
-      counter.textContent = count + " von " + total + " Entitäten ausgewählt";
+      counter.textContent = __t("review.entities_selected", {count: count, total: total});
     }
   }
 
@@ -265,8 +272,6 @@
     return "low";
   }
 
-  var DOWNLOAD_ERROR = "Fehler beim Herunterladen der PDF.";
-
   /**
    * Extract plain text from an HTML error fragment returned by the server.
    * Uses DOMParser to safely parse without injecting into the live document.
@@ -274,9 +279,10 @@
   function extractTextFromHtml(html) {
     try {
       var doc = new DOMParser().parseFromString(html, "text/html");
-      return doc.body.textContent.trim() || DOWNLOAD_ERROR;
-    } catch (_) {
-      return DOWNLOAD_ERROR;
+      return doc.body.textContent.trim() || __t("review.download_error");
+    } catch (err) {
+      console.error("Failed to parse error HTML:", err);
+      return __t("review.download_error");
     }
   }
 
@@ -312,7 +318,7 @@
         URL.revokeObjectURL(url);
       })
       .catch(function (err) {
-        alert(err.message || DOWNLOAD_ERROR);
+        alert(err.message || __t("review.download_error"));
       })
       .finally(function () {
         if (btn) btn.disabled = false;

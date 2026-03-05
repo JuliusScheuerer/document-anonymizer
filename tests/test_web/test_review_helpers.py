@@ -130,14 +130,14 @@ class TestReconstructRecognizerResults:
         data = [
             {"entity_type": "PERSON", "start": 0, "end": 100, "score": 0.9},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "short")
 
     def test_negative_start_raises_valueerror(self) -> None:
         data = [
             {"entity_type": "PERSON", "start": -1, "end": 5, "score": 0.9},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello world")
 
     def test_zero_length_entity_raises_valueerror(self) -> None:
@@ -145,14 +145,14 @@ class TestReconstructRecognizerResults:
         data = [
             {"entity_type": "PERSON", "start": 0, "end": 0, "score": 0.9},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello")
 
     def test_missing_fields_raises_valueerror(self) -> None:
         data = [
             {"entity_type": "PERSON"},  # missing start/end/score
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello world")
 
     def test_non_dict_items_raises_valueerror(self) -> None:
@@ -162,7 +162,7 @@ class TestReconstructRecognizerResults:
             None,
             {"entity_type": "PERSON", "start": 0, "end": 5, "score": 0.9},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello")
 
     def test_multiple_entities(self) -> None:
@@ -194,21 +194,21 @@ class TestReconstructRecognizerResults:
                 "score": 0.9,
             },
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello")
 
     def test_score_above_one_raises_valueerror(self) -> None:
         data = [
             {"entity_type": "PERSON", "start": 0, "end": 5, "score": 1.5},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello")
 
     def test_score_below_zero_raises_valueerror(self) -> None:
         data = [
             {"entity_type": "PERSON", "start": 0, "end": 5, "score": -0.1},
         ]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_recognizer_results(json.dumps(data), "hello")
 
     def test_valid_entity_type_formats(self) -> None:
@@ -236,7 +236,7 @@ class TestReconstructSelectedEntitiesForPdf:
 
     def test_missing_text_field_raises_valueerror(self) -> None:
         data = [{"entity_type": "PERSON"}]  # no "text" key
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_selected_entities_for_pdf(json.dumps(data))
 
     def test_exceeding_max_entities_raises_valueerror(self) -> None:
@@ -247,13 +247,13 @@ class TestReconstructSelectedEntitiesForPdf:
     def test_oversized_text_raises_valueerror(self) -> None:
         """Entity text exceeding 1000 chars should raise ValueError."""
         data = [{"text": "x" * 1001}]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_selected_entities_for_pdf(json.dumps(data))
 
     def test_empty_text_raises_valueerror(self) -> None:
         """Empty text values should raise ValueError."""
         data = [{"text": ""}, {"text": "   "}]
-        with pytest.raises(ValueError, match="konnten nicht"):
+        with pytest.raises(ValueError):
             _reconstruct_selected_entities_for_pdf(json.dumps(data))
 
     def test_non_string_text_coerced(self) -> None:
