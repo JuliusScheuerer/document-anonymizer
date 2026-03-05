@@ -173,6 +173,9 @@ def _reconstruct_recognizer_results(
             start = int(item["start"])
             end = int(item["end"])
             score = float(item["score"])
+            if not (0.0 <= score <= 1.0):
+                skipped += 1
+                continue
             entity_type = str(item["entity_type"])
         except (KeyError, ValueError, TypeError):
             skipped += 1
