@@ -166,40 +166,37 @@ class TestAnonymizeForm:
         assert "&lt;PERSON&gt;" not in r.text
 
 
+def _make_pdf_b64(text: str = "Herr Max Mustermann") -> str:
+    """Create a minimal single-page PDF and return its base64 encoding."""
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), text, fontsize=12)
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return base64.b64encode(pdf_bytes).decode()
+
+
 class TestRedactPdf:
     def test_redact_pdf_download(self) -> None:
-        doc = fitz.open()
-        page = doc.new_page()
-        page.insert_text((72, 72), "Herr Max Mustermann", fontsize=12)
-        pdf_bytes = doc.tobytes()
-        doc.close()
-
-        pdf_b64 = base64.b64encode(pdf_bytes).decode()
-
+        pdf_b64 = _make_pdf_b64()
         r = client.post(
             "/redact-pdf",
             data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
+            headers=_HTMX_HEADERS,
         )
         assert r.status_code == 200
         assert r.headers["content-type"] == "application/pdf"
         assert r.headers["content-disposition"] == "attachment; filename=redacted.pdf"
         assert r.content[:4] == b"%PDF"
 
-    def test_redact_pdf_works_without_htmx_header(self) -> None:
-        """PDF redaction uses a plain HTML form, not HTMX — no HX-Request needed."""
-        doc = fitz.open()
-        page = doc.new_page()
-        page.insert_text((72, 72), "Herr Max Mustermann", fontsize=12)
-        pdf_bytes = doc.tobytes()
-        doc.close()
-
-        pdf_b64 = base64.b64encode(pdf_bytes).decode()
-
+    def test_redact_pdf_rejects_without_htmx_header(self) -> None:
+        """POST /redact-pdf without HX-Request header should be rejected (CSRF)."""
+        pdf_b64 = _make_pdf_b64()
         r = client.post(
             "/redact-pdf",
             data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
         )
-        assert r.status_code == 200
+        assert r.status_code == 403
 
     def test_redact_pdf_rejects_invalid_content(self) -> None:
         """Non-PDF content should return 400, not crash."""
@@ -207,6 +204,7 @@ class TestRedactPdf:
         r = client.post(
             "/redact-pdf",
             data={"pdf_b64": fake_b64, "score_threshold": "0.35"},
+            headers=_HTMX_HEADERS,
         )
         assert r.status_code == 400
 
@@ -215,6 +213,7 @@ class TestRedactPdf:
         r = client.post(
             "/redact-pdf",
             data={"pdf_b64": "!!!not-valid-base64!!!", "score_threshold": "0.35"},
+            headers=_HTMX_HEADERS,
         )
         assert r.status_code == 400
         assert "PDF-Daten" in r.text
@@ -243,21 +242,6 @@ class TestCsrfProtection:
         )
         assert r.status_code == 403
 
-    def test_redact_pdf_allows_plain_form(self) -> None:
-        """POST /redact-pdf should work without HX-Request (uses plain HTML form)."""
-        doc = fitz.open()
-        page = doc.new_page()
-        page.insert_text((72, 72), "Herr Max Mustermann", fontsize=12)
-        pdf_bytes = doc.tobytes()
-        doc.close()
-
-        pdf_b64 = base64.b64encode(pdf_bytes).decode()
-        r = client.post(
-            "/redact-pdf",
-            data={"pdf_b64": pdf_b64, "score_threshold": "0.35"},
-        )
-        assert r.status_code == 200
-
 
 class TestSecurityHeaders:
     def test_cache_control_headers(self) -> None:
@@ -278,6 +262,36 @@ class TestSecurityHeaders:
         csp = r.headers["Content-Security-Policy"]
         assert "default-src 'self'" in csp
         assert "frame-ancestors 'none'" in csp
+
+
+class TestFormValidation:
+    def test_score_threshold_above_max_rejected(self) -> None:
+        """score_threshold > 1.0 should be rejected by Pydantic validation."""
+        r = client.post(
+            "/detect",
+            headers=_HTMX_HEADERS,
+            data={"text": "Max Mustermann", "score_threshold": "2.0"},
+        )
+        assert r.status_code == 422
+
+    def test_score_threshold_below_min_rejected(self) -> None:
+        """Negative score_threshold should be rejected by Pydantic validation."""
+        r = client.post(
+            "/detect",
+            headers=_HTMX_HEADERS,
+            data={"text": "Max Mustermann", "score_threshold": "-0.5"},
+        )
+        assert r.status_code == 422
+
+    def test_text_exceeding_max_length_rejected(self) -> None:
+        """Text exceeding _MAX_TEXT_LENGTH should be rejected."""
+        long_text = "A" * 100_001
+        r = client.post(
+            "/detect",
+            headers=_HTMX_HEADERS,
+            data={"text": long_text, "score_threshold": "0.35"},
+        )
+        assert r.status_code == 422
 
 
 class TestXssDefenseInDepth:

@@ -8,7 +8,7 @@ This is NOT cosmetic overlay — the original text is permanently gone.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import fitz
 import structlog
@@ -48,21 +48,11 @@ class PdfPageLimitExceededError(Exception):
 
 
 class IncompleteRedactionError(Exception):
-    """Raised when some detected PII could not be located for redaction.
+    """Raised when some detected PII could not be located for redaction."""
 
-    The partial_pdf attribute contains the PDF with successful redactions
-    applied, so the caller can still offer it with a warning.
-    """
-
-    def __init__(
-        self,
-        unredacted_count: int,
-        total_count: int,
-        partial_pdf: bytes | None = None,
-    ) -> None:
+    def __init__(self, unredacted_count: int, total_count: int) -> None:
         self.unredacted_count = unredacted_count
         self.total_count = total_count
-        self.partial_pdf = partial_pdf
         super().__init__(
             f"{unredacted_count} of {total_count} detected PII entities "
             f"could not be visually located for redaction. "
@@ -78,6 +68,9 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
 
     Returns:
         Concatenated text from all pages.
+
+    Raises:
+        PdfPageLimitExceededError: If the PDF exceeds MAX_PDF_PAGES.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         if len(doc) > MAX_PDF_PAGES:
@@ -95,6 +88,9 @@ def detect_pii_in_pdf(
 
     For each detected entity in the text, finds the corresponding
     bounding rectangles on the PDF pages.
+
+    Raises:
+        PdfPageLimitExceededError: If the PDF exceeds MAX_PDF_PAGES.
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         if len(doc) > MAX_PDF_PAGES:
@@ -114,6 +110,14 @@ def detect_pii_in_pdf(
             for result in results:
                 pii_text = page_text[result.start : result.end]
                 rects = page.search_for(pii_text)
+                if not rects:
+                    logger.warning(
+                        "pii_detection_visual_miss",
+                        entity_type=result.entity_type,
+                        page=page_num,
+                        score=round(result.score, 3),
+                    )
+                    continue
                 for rect in rects:
                     detections.append(
                         PdfDetection(
@@ -149,7 +153,7 @@ def redact_pdf(
         score_threshold: Minimum confidence score.
 
     Returns:
-        Tuple of (redacted_pdf_bytes, detected_entities).
+        Tuple of (redacted_pdf_bytes, successfully_redacted_entities).
     """
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         if len(doc) > MAX_PDF_PAGES:
@@ -206,11 +210,72 @@ def redact_pdf(
         redacted_bytes = doc.tobytes(garbage=4, deflate=True)
 
         if unredacted_entities > 0:
-            raise IncompleteRedactionError(
-                unredacted_entities, total_entities, partial_pdf=redacted_bytes
-            )
+            raise IncompleteRedactionError(unredacted_entities, total_entities)
 
     return redacted_bytes, all_detections
+
+
+class RedactionTarget(TypedDict):
+    """A PII entity text to redact from a PDF."""
+
+    text: str
+
+
+def redact_pdf_with_entities(
+    pdf_bytes: bytes,
+    entities: list[RedactionTarget],
+) -> tuple[bytes, int]:
+    """Physically redact pre-selected PII entities from a PDF.
+
+    Unlike redact_pdf(), this does NOT run detection — it takes a list of
+    entity texts already confirmed by the user (human-in-the-loop review).
+
+    Args:
+        pdf_bytes: Raw PDF file content.
+        entities: List of RedactionTarget dicts with a ``text`` key.
+
+    Returns:
+        Tuple of (redacted_pdf_bytes, number_of_redactions_applied).
+
+    Raises:
+        IncompleteRedactionError: If some entity texts cannot be found
+            on any page.
+    """
+    # Deduplicate entity texts, skip empty strings
+    entity_texts = list({e["text"] for e in entities if e["text"].strip()})
+
+    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+        if len(doc) > MAX_PDF_PAGES:
+            raise PdfPageLimitExceededError(len(doc))
+
+        total_redactions = 0
+        found_texts: set[str] = set()
+
+        for page in doc:
+            for entity_text in entity_texts:
+                rects = page.search_for(entity_text)
+                if rects:
+                    found_texts.add(entity_text)
+                for rect in rects:
+                    page.add_redact_annot(rect, fill=(0, 0, 0))
+                    total_redactions += 1
+
+            page.apply_redactions()
+
+        # Scrub document metadata
+        doc.set_metadata({})
+        redacted_bytes = doc.tobytes(garbage=4, deflate=True)
+
+        missing_texts = set(entity_texts) - found_texts
+        if missing_texts:
+            logger.warning(
+                "redact_with_entities_miss",
+                missing_count=len(missing_texts),
+                total_count=len(entity_texts),
+            )
+            raise IncompleteRedactionError(len(missing_texts), len(entity_texts))
+
+    return redacted_bytes, total_redactions
 
 
 def anonymize_pdf_text(

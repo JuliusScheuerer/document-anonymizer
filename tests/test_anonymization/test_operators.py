@@ -1,6 +1,11 @@
 """Tests for custom Presidio operators (fake data generators)."""
 
+from unittest.mock import patch
+
+import pytest
+
 from document_anonymizer.anonymization.operators import (
+    _FAKER_GENERATORS,
     FakeOperator,
     _fake_id_card,
     _fake_steuer_id,
@@ -84,6 +89,12 @@ class TestFakeOperator:
             result = op.operate("x", params={"entity_type": entity_type})
             assert isinstance(result, str)
             assert len(result) > 0
+
+    def test_invalid_faker_generator_raises_valueerror(self) -> None:
+        with patch.dict(_FAKER_GENERATORS, {"TEST_TYPE": "nonexistent_method"}):
+            op = FakeOperator()
+            with pytest.raises(ValueError, match="does not exist"):
+                op.operate("x", params={"entity_type": "TEST_TYPE"})
 
     def test_operator_metadata(self) -> None:
         op = FakeOperator()

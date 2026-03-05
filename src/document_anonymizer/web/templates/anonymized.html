@@ -23,42 +23,19 @@
     <div class="flex gap-2">
         <button
             id="copy-btn"
-            onclick="copyAnonymizedText(this)"
             class="btn btn-secondary text-sm"
         >
             Text kopieren
         </button>
         {% if is_pdf and pdf_b64 %}
-        <form method="post" action="/redact-pdf" class="inline">
+        <form id="redact-pdf-form-download" method="post" action="/redact-pdf" class="inline">
             <input type="hidden" name="pdf_b64" value="{{ pdf_b64 }}">
             <input type="hidden" name="score_threshold" value="{{ score_threshold }}">
+            <input type="hidden" name="selected_entities" value="{{ selected_entities }}">
             <button type="submit" class="btn btn-primary text-sm">
-                PDF mit Schwärzungen herunterladen
+                PDF mit Schw&auml;rzungen herunterladen
             </button>
         </form>
         {% endif %}
     </div>
-    <script>
-    function copyAnonymizedText(btn) {
-        var text = document.querySelector('.diff-anonymized').textContent;
-        var originalLabel = btn.textContent;
-        function showFeedback() {
-            btn.textContent = 'Kopiert!';
-            setTimeout(function() { btn.textContent = originalLabel; }, 2000);
-        }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(showFeedback);
-        } else {
-            var ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
-            showFeedback();
-        }
-    }
-    </script>
 </div>

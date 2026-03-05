@@ -3,8 +3,11 @@
 import random
 from typing import Any
 
+import structlog
 from faker import Faker
 from presidio_anonymizer.operators import Operator, OperatorType
+
+logger = structlog.get_logger(__name__)
 
 _FAKER = Faker("de_DE")
 
@@ -20,7 +23,7 @@ def _fake_steuer_id() -> str:
     """
     # Pick one digit to repeat (appears twice)
     repeat_digit = str(random.randint(0, 9))  # noqa: S311  # nosec B311
-    # Build first 10 digits: 8 unique + 1 repeated
+    # Build first 10 digits: 8 unique + the repeated digit twice
     available = [str(d) for d in range(10) if str(d) != repeat_digit]
     random.shuffle(available)
     digits = [*available[:8], repeat_digit, repeat_digit]
@@ -31,7 +34,7 @@ def _fake_steuer_id() -> str:
             if digits[i] != "0":
                 digits[0], digits[i] = digits[i], digits[0]
                 break
-    # 11th digit is a check digit placeholder (0-9)
+    # 11th digit: random (real Steuer-IDs use ISO 7064 check digit)
     digits.append(str(random.randint(0, 9)))  # noqa: S311  # nosec B311
     return "".join(digits)
 
@@ -64,7 +67,7 @@ def _fake_handelsregister() -> str:
     return f"{prefix} {number}"
 
 
-# Map entity types to Faker generator callables
+# Map entity types to Faker generators (method names or callables)
 _FAKER_GENERATORS: dict[str, Any] = {
     "PERSON": "name",
     "LOCATION": "city",
@@ -96,6 +99,7 @@ class FakeOperator(Operator):
         generator = _FAKER_GENERATORS.get(entity_type)
 
         if generator is None:
+            logger.warning("fake_operator_unknown_entity_type", entity_type=entity_type)
             return str(_FAKER.name())
 
         # Callable (custom generator function)
@@ -106,7 +110,11 @@ class FakeOperator(Operator):
         if hasattr(_FAKER, generator):
             return str(getattr(_FAKER, generator)())
 
-        return str(_FAKER.name())
+        msg = (
+            f"Faker generator '{generator}' for entity type"
+            f" '{entity_type}' does not exist"
+        )
+        raise ValueError(msg)
 
     def validate(self, params: dict[str, Any] | None = None) -> None:
         """No special validation required."""

@@ -25,3 +25,5 @@ coverage.xml
 .docker/
 # Copier
 .copier-answers.yml
+# Generated test documents
+test_documents/
