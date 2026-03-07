@@ -27,8 +27,13 @@ coverage.xml
 .copier-answers.yml
 # Generated test documents
 test_documents/
-# Claude Code / AI tooling
+# AI context & engineering rules (symlinked from dev-blueprint)
 CLAUDE.md
+GOLDEN-PRINCIPLES.md
+*-RULES.md
+backlog.md
+docs/vision.md
+plans/
 .claude/
 .playwright-mcp/
 # Design artifacts
