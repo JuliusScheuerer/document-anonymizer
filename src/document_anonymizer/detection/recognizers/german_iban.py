@@ -4,6 +4,8 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import RECOGNIZER_BASE_SCORE_HIGH
+
 # DE + 2 check digits + 18 digits (bank code + account number)
 # Allows optional spaces every 4 characters
 _IBAN_PATTERN = r"\bDE\d{2}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\s?\d{2}\b"
@@ -42,7 +44,7 @@ class GermanIbanRecognizer(PatternRecognizer):
     """Detects German IBANs with context boosting and checksum validation."""
 
     ENTITIES: ClassVar[list[str]] = ["DE_IBAN"]
-    DEFAULT_SCORE = 0.5
+    DEFAULT_SCORE = RECOGNIZER_BASE_SCORE_HIGH
 
     def __init__(self) -> None:
         patterns = [

@@ -4,6 +4,8 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import RECOGNIZER_BASE_SCORE_LOW
+
 # Steuer-ID: exactly 11 digits, no leading zero
 _STEUER_ID_PATTERN = r"\b[1-9]\d{10}\b"
 
@@ -67,12 +69,14 @@ class GermanTaxRecognizer(PatternRecognizer):
             Pattern(
                 "steuer_id",
                 _STEUER_ID_PATTERN,
-                0.3,  # Low base — 11 digits are common; context boosts it
+                # Low base — 11 digits are common; context boosts it
+                RECOGNIZER_BASE_SCORE_LOW,
             ),
             Pattern(
                 "steuernummer",
                 _STEUERNUMMER_PATTERN,
-                0.3,  # Below default threshold; requires context words
+                # Below default threshold; requires context words
+                RECOGNIZER_BASE_SCORE_LOW,
             ),
         ]
         super().__init__(

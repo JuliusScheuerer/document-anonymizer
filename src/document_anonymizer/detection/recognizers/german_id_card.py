@@ -13,6 +13,8 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import RECOGNIZER_BASE_SCORE_LOW
+
 # Restricted alphanumeric: letters that cannot be confused with digits
 _VALID_LETTERS = "CFGHJKLMNPRTVWXYZ"
 
@@ -63,7 +65,7 @@ class GermanIdCardRecognizer(PatternRecognizer):
 
     def __init__(self) -> None:
         patterns = [
-            Pattern("german_id_card", _ID_PATTERN, 0.3),
+            Pattern("german_id_card", _ID_PATTERN, RECOGNIZER_BASE_SCORE_LOW),
         ]
         super().__init__(
             supported_entity="DE_ID_CARD",

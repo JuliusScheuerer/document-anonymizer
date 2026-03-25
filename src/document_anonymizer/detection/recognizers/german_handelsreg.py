@@ -8,6 +8,8 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import RECOGNIZER_BASE_SCORE_HIGH
+
 _HANDELSREG_PATTERN = r"\bHR[AB]\s?\d{3,6}\s?[A-Z]?\b"
 
 _CONTEXT_WORDS = [
@@ -30,7 +32,11 @@ class GermanHandelsregisterRecognizer(PatternRecognizer):
 
     def __init__(self) -> None:
         patterns = [
-            Pattern("german_handelsregister", _HANDELSREG_PATTERN, 0.5),
+            Pattern(
+                "german_handelsregister",
+                _HANDELSREG_PATTERN,
+                RECOGNIZER_BASE_SCORE_HIGH,
+            ),
         ]
         super().__init__(
             supported_entity="DE_HANDELSREGISTER",

@@ -19,6 +19,11 @@ from presidio_anonymizer import AnonymizerEngine
 from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
 from document_anonymizer.api.dependencies import get_analyzer, get_anonymizer
+from document_anonymizer.constants import (
+    DEFAULT_SCORE_THRESHOLD,
+    TIER_HIGH_THRESHOLD,
+    TIER_MEDIUM_THRESHOLD,
+)
 from document_anonymizer.document.pdf_handler import (
     IncompleteRedactionError,
     PdfPageLimitExceededError,
@@ -130,9 +135,9 @@ def _template_response(
 
 def _score_to_tier(score: float) -> Tier:
     """Map a confidence score to a review tier."""
-    if score >= 0.7:
+    if score >= TIER_HIGH_THRESHOLD:
         return "high"
-    if score >= 0.5:
+    if score >= TIER_MEDIUM_THRESHOLD:
         return "medium"
     return "low"
 
@@ -363,7 +368,7 @@ def _normalize_line_endings(text: str) -> str:
 async def detect_form(
     request: Request,
     text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
-    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = DEFAULT_SCORE_THRESHOLD,
     file: UploadFile | None = File(default=None),  # noqa: B008
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> HTMLResponse:
@@ -489,7 +494,7 @@ async def anonymize_form(
     request: Request,
     text: Annotated[str, Form(max_length=_MAX_TEXT_LENGTH)] = "",
     strategy: str = Form(default="replace"),
-    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = DEFAULT_SCORE_THRESHOLD,
     is_pdf: bool = Form(default=False),
     pdf_b64: str = Form(default=""),
     selected_entities: str = Form(default=""),
@@ -603,7 +608,7 @@ async def anonymize_form(
 async def redact_pdf_form(
     request: Request,
     pdf_b64: str = Form(...),
-    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = 0.35,
+    score_threshold: Annotated[float, Form(ge=0.0, le=1.0)] = DEFAULT_SCORE_THRESHOLD,
     selected_entities: str = Form(default=""),
     analyzer: AnalyzerEngine = Depends(get_analyzer),  # noqa: B008
 ) -> Response:

@@ -15,6 +15,7 @@ import structlog
 
 from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
+from document_anonymizer.constants import DEFAULT_SCORE_THRESHOLD
 from document_anonymizer.document.text_handler import detect_pii_in_text
 
 if TYPE_CHECKING:
@@ -82,7 +83,7 @@ def detect_pii_in_pdf(
     analyzer: AnalyzerEngine,
     pdf_bytes: bytes,
     language: str = "de",
-    score_threshold: float = 0.35,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
 ) -> list[PdfDetection]:
     """Detect PII in a PDF with page and position metadata.
 
@@ -136,7 +137,7 @@ def redact_pdf(
     analyzer: AnalyzerEngine,
     pdf_bytes: bytes,
     language: str = "de",
-    score_threshold: float = 0.35,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
 ) -> tuple[bytes, list[PdfDetection]]:
     """Physically redact PII from a PDF document.
 
@@ -284,7 +285,7 @@ def anonymize_pdf_text(
     pdf_bytes: bytes,
     strategy: AnonymizationStrategy = AnonymizationStrategy.REPLACE,
     language: str = "de",
-    score_threshold: float = 0.35,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
 ) -> tuple[str, list[RecognizerResult]]:
     """Extract text from PDF, detect and anonymize PII.
 
