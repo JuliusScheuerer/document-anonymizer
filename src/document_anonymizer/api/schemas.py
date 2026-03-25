@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
+from document_anonymizer.constants import DEFAULT_SCORE_THRESHOLD
 
 _EXAMPLE_TEXT = (
     "Herr Max Mustermann, geboren am 15.03.1985, "
@@ -26,10 +27,10 @@ class DetectionRequest(BaseModel):
         examples=["de"],
     )
     score_threshold: float = Field(
-        default=0.35,
+        default=DEFAULT_SCORE_THRESHOLD,
         ge=0.0,
         le=1.0,
-        examples=[0.35],
+        examples=[DEFAULT_SCORE_THRESHOLD],
     )
 
 
@@ -74,10 +75,10 @@ class AnonymizeRequest(BaseModel):
         examples=[{"PERSON": "fake", "DE_IBAN": "mask"}],
     )
     score_threshold: float = Field(
-        default=0.35,
+        default=DEFAULT_SCORE_THRESHOLD,
         ge=0.0,
         le=1.0,
-        examples=[0.35],
+        examples=[DEFAULT_SCORE_THRESHOLD],
     )
 
 

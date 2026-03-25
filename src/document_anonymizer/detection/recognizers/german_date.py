@@ -8,6 +8,8 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import RECOGNIZER_BASE_SCORE_LOW
+
 # DD.MM.YYYY — standard German date format
 _DATE_PATTERN = r"\b(?:0[1-9]|[12]\d|3[01])\.(?:0[1-9]|1[0-2])\.\d{4}\b"
 
@@ -37,7 +39,7 @@ class GermanDateRecognizer(PatternRecognizer):
 
     def __init__(self) -> None:
         patterns = [
-            Pattern("german_date_full", _DATE_PATTERN, 0.3),
+            Pattern("german_date_full", _DATE_PATTERN, RECOGNIZER_BASE_SCORE_LOW),
             Pattern("german_date_short", _DATE_SHORT_PATTERN, 0.2),
         ]
         super().__init__(

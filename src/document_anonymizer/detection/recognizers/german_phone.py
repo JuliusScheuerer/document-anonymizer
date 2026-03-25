@@ -4,6 +4,11 @@ from typing import ClassVar
 
 from presidio_analyzer import Pattern, PatternRecognizer
 
+from document_anonymizer.constants import (
+    RECOGNIZER_BASE_SCORE_HIGH,
+    RECOGNIZER_BASE_SCORE_LOW,
+)
+
 # International format: +49 followed by area code and number
 _INTL_PATTERN = r"\+49\s?\(?\d{2,4}\)?\s?\d{3,8}(?:[\s-]?\d{1,5})?\b"
 
@@ -37,8 +42,10 @@ class GermanPhoneRecognizer(PatternRecognizer):
 
     def __init__(self) -> None:
         patterns = [
-            Pattern("german_phone_intl", _INTL_PATTERN, 0.5),
-            Pattern("german_phone_domestic", _DOMESTIC_PATTERN, 0.3),
+            Pattern("german_phone_intl", _INTL_PATTERN, RECOGNIZER_BASE_SCORE_HIGH),
+            Pattern(
+                "german_phone_domestic", _DOMESTIC_PATTERN, RECOGNIZER_BASE_SCORE_LOW
+            ),
             Pattern("german_phone_mobile", _MOBILE_PATTERN, 0.6),
         ]
         super().__init__(

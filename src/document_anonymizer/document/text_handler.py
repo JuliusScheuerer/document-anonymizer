@@ -5,6 +5,7 @@ from presidio_anonymizer import AnonymizerEngine
 
 from document_anonymizer.anonymization.engine import anonymize_text
 from document_anonymizer.anonymization.strategies import AnonymizationStrategy
+from document_anonymizer.constants import DEFAULT_SCORE_THRESHOLD
 
 
 def _deduplicate_overlapping(
@@ -39,7 +40,7 @@ def detect_pii_in_text(
     engine: AnalyzerEngine,
     text: str,
     language: str = "de",
-    score_threshold: float = 0.35,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
 ) -> list[RecognizerResult]:
     """Detect PII entities in plain text.
 
@@ -64,7 +65,7 @@ def anonymize_plain_text(
     strategy: AnonymizationStrategy = AnonymizationStrategy.REPLACE,
     entity_strategies: dict[str, AnonymizationStrategy] | None = None,
     language: str = "de",
-    score_threshold: float = 0.35,
+    score_threshold: float = DEFAULT_SCORE_THRESHOLD,
 ) -> tuple[str, list[RecognizerResult]]:
     """Detect and anonymize PII in plain text.
 
