@@ -452,8 +452,22 @@ async def detect_form(
                 "pdf_b64": pdf_b64,
             },
         )
+    except (ValueError, RuntimeError, TypeError) as exc:
+        # Known NLP/Presidio processing errors (bad input, model failure)
+        logger.warning("detect_form_processing_error", error=str(exc))
+        request_id = getattr(request.state, "request_id", "unknown")
+        return _template_response(
+            request,
+            "error_fragment.html",
+            {
+                "error": translate(
+                    "error.detection_failed", lang=lang, request_id=request_id
+                )
+            },
+        )
     except Exception:
-        logger.exception("detect_form_error")
+        # Unexpected error — log full traceback for investigation
+        logger.exception("detect_form_unexpected_error")
         request_id = getattr(request.state, "request_id", "unknown")
         return _template_response(
             request,
@@ -557,8 +571,22 @@ async def anonymize_form(
                 "selected_entities": selected_entities,
             },
         )
+    except (ValueError, RuntimeError, TypeError) as exc:
+        # Known NLP/Presidio processing errors
+        logger.warning("anonymize_form_processing_error", error=str(exc))
+        request_id = getattr(request.state, "request_id", "unknown")
+        return _template_response(
+            request,
+            "error_fragment.html",
+            {
+                "error": translate(
+                    "error.anonymization_failed", lang=lang, request_id=request_id
+                )
+            },
+        )
     except Exception:
-        logger.exception("anonymize_form_error")
+        # Unexpected error — log full traceback for investigation
+        logger.exception("anonymize_form_unexpected_error")
         request_id = getattr(request.state, "request_id", "unknown")
         return _template_response(
             request,
@@ -645,8 +673,23 @@ async def redact_pdf_form(
             },
             status_code=422,
         )
+    except (ValueError, RuntimeError, TypeError) as exc:
+        # Known PDF/NLP processing errors
+        logger.warning("redact_pdf_processing_error", error=str(exc))
+        request_id = getattr(request.state, "request_id", "unknown")
+        return _template_response(
+            request,
+            "error_fragment.html",
+            {
+                "error": translate(
+                    "error.pdf_redaction_failed", lang=lang, request_id=request_id
+                )
+            },
+            status_code=500,
+        )
     except Exception:
-        logger.exception("redact_pdf_error")
+        # Unexpected error — log full traceback for investigation
+        logger.exception("redact_pdf_unexpected_error")
         request_id = getattr(request.state, "request_id", "unknown")
         return _template_response(
             request,

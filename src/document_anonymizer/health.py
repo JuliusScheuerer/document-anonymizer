@@ -36,7 +36,7 @@ def check_health() -> HealthResponse:
 
         get_analyzer()
         response.analyzer_ready = True
-    except Exception as exc:
+    except (ImportError, OSError, RuntimeError, ValueError) as exc:
         logger.warning(
             "health_check_failed",
             component="analyzer",

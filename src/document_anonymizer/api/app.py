@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
     try:
         get_analyzer()
         logger.info("startup", action="analyzer_engine_ready")
-    except Exception:
+    except (ImportError, OSError, RuntimeError, ValueError):
         logger.exception("startup_failed", action="analyzer_engine_load")
         raise
     yield
