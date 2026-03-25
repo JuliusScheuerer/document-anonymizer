@@ -37,6 +37,7 @@ _STRATEGY_DESCRIPTIONS: dict[str, str] = {
 
 @router.post(
     "/detect",
+    status_code=200,
     response_model=DetectionResponse,
     summary="Detect PII entities in text",
     responses={500: {"model": ErrorResponse}},
@@ -85,6 +86,7 @@ async def detect_pii(
 
 @router.post(
     "/anonymize",
+    status_code=200,
     response_model=AnonymizeResponse,
     summary="Anonymize PII in text",
     responses={500: {"model": ErrorResponse}},
@@ -131,6 +133,7 @@ async def anonymize(
 
 @router.get(
     "/strategies",
+    status_code=200,
     response_model=StrategiesResponse,
     summary="List available anonymization strategies",
 )
