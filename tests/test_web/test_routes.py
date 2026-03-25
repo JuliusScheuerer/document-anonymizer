@@ -287,6 +287,36 @@ class TestSecurityHeaders:
         assert "frame-ancestors 'none'" in csp
         assert "font-src 'self'" in csp
 
+    def test_csp_nonce_in_script_src(self) -> None:
+        """CSP script-src must include a per-request nonce."""
+        r = client.get("/")
+        csp = r.headers["Content-Security-Policy"]
+        assert "'nonce-" in csp
+
+    def test_csp_nonce_differs_per_request(self) -> None:
+        """Each request must get a unique CSP nonce."""
+        r1 = client.get("/")
+        r2 = client.get("/")
+        csp1 = r1.headers["Content-Security-Policy"]
+        csp2 = r2.headers["Content-Security-Policy"]
+        assert csp1 != csp2
+
+    def test_csp_nonce_matches_inline_script(self) -> None:
+        """The nonce in the CSP header must match the nonce on the inline script tag."""
+        import re
+
+        r = client.get("/")
+        csp = r.headers["Content-Security-Policy"]
+        csp_match = re.search(r"'nonce-([^']+)'", csp)
+        assert csp_match is not None
+        csp_nonce = csp_match.group(1)
+
+        html_match = re.search(r'<script nonce="([^"]+)">', r.text)
+        assert html_match is not None
+        html_nonce = html_match.group(1)
+
+        assert csp_nonce == html_nonce
+
 
 class TestFormValidation:
     def test_score_threshold_above_max_rejected(self) -> None:
