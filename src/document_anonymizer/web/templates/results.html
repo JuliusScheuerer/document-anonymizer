@@ -30,7 +30,7 @@
             {% set tier_entities = entities_by_tier.get(tier_key, []) %}
             {% if tier_entities %}
             <div class="tier-section" data-tier="{{ tier_key }}">
-                <div class="tier-header" data-tier-toggle="{{ tier_key }}">
+                <div class="tier-header" data-tier-toggle="{{ tier_key }}" role="button" tabindex="0" aria-expanded="true">
                     <span class="tier-toggle-icon" id="toggle-icon-{{ tier_key }}">&#9660;</span>
                     <input
                         type="checkbox"
