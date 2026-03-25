@@ -72,10 +72,11 @@
       selectAlls[j].addEventListener("change", onSelectAllChange);
     }
 
-    // Tier header toggle (collapse/expand) — click on header but not on checkbox
+    // Tier header toggle (collapse/expand) — click or Enter/Space on header
     var tierHeaders = document.querySelectorAll("[data-tier-toggle]");
     for (var k = 0; k < tierHeaders.length; k++) {
       tierHeaders[k].addEventListener("click", onTierHeaderClick);
+      tierHeaders[k].addEventListener("keydown", onTierHeaderKeydown);
     }
 
     // Clickable <mark> tags in preview
@@ -119,18 +120,32 @@
   function onTierHeaderClick(e) {
     // Don't toggle collapse when clicking the checkbox itself
     if (e.target.classList.contains("select-all-checkbox")) return;
+    toggleTierCollapse(e.currentTarget);
+  }
 
-    var tier = e.currentTarget.dataset.tierToggle;
+  function onTierHeaderKeydown(e) {
+    // Enter or Space toggles collapse (standard button behavior)
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      toggleTierCollapse(e.currentTarget);
+    }
+  }
+
+  function toggleTierCollapse(header) {
+    var tier = header.dataset.tierToggle;
     var body = document.getElementById("tier-body-" + tier);
     var icon = document.getElementById("toggle-icon-" + tier);
     if (!body) return;
 
-    if (body.hidden) {
-      body.hidden = false;
-      if (icon) icon.classList.remove("tier-toggle-icon--collapsed");
-    } else {
-      body.hidden = true;
-      if (icon) icon.classList.add("tier-toggle-icon--collapsed");
+    var expanded = !body.hidden;
+    body.hidden = expanded;
+    header.setAttribute("aria-expanded", String(!expanded));
+    if (icon) {
+      if (expanded) {
+        icon.classList.add("tier-toggle-icon--collapsed");
+      } else {
+        icon.classList.remove("tier-toggle-icon--collapsed");
+      }
     }
   }
 
