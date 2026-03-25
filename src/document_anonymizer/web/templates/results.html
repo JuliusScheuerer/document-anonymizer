@@ -78,9 +78,10 @@
                 <label for="strategy" class="text-sm font-medium text-warm-700">{{ _("results.strategy_label") }}</label>
                 <select id="strategy" name="strategy" class="input-field">
                     {% for s in strategies %}
-                    <option value="{{ s }}">{{ s | capitalize }}</option>
+                    <option value="{{ s }}" title="{{ _('strategy.' + s) }}">{{ s | capitalize }}</option>
                     {% endfor %}
                 </select>
+                <span id="strategy-description" class="text-xs text-warm-500"></span>
             </div>
             <form id="anonymize-form" action="/anonymize-form" method="post"
                   hx-post="/anonymize-form" hx-target="#anonymized-output"
