@@ -261,6 +261,15 @@
     if (select && hidden) {
       hidden.value = select.value;
     }
+    updateStrategyDescription();
+  }
+
+  function updateStrategyDescription() {
+    var select = document.getElementById("strategy");
+    var desc = document.getElementById("strategy-description");
+    if (!select || !desc) return;
+    var selected = select.options[select.selectedIndex];
+    desc.textContent = selected ? selected.title : "";
   }
 
   function updateCounter() {
