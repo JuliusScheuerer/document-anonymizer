@@ -16,7 +16,6 @@ from document_anonymizer.security.middleware import SecurityHeadersMiddleware
 from document_anonymizer.security.rate_limiter import RateLimiterMiddleware
 from document_anonymizer.web.routes import web_router
 
-configure_logging()
 logger = structlog.get_logger(__name__)
 
 _VERSION = importlib.metadata.version("document-anonymizer")
@@ -24,7 +23,9 @@ _VERSION = importlib.metadata.version("document-anonymizer")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: ARG001
-    """Eagerly load the analyzer engine on startup to fail fast."""
+    """Configure logging and eagerly load the analyzer engine on startup."""
+    configure_logging()
+
     from document_anonymizer.api.dependencies import get_analyzer
 
     logger.info("startup", action="loading_analyzer_engine")
