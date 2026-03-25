@@ -1,5 +1,6 @@
 """Security middleware: CSP, headers, request ID tracking."""
 
+import secrets
 import uuid
 
 import structlog
@@ -8,6 +9,9 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 _STATIC_PATH_PREFIX = "/static/"
+
+# Number of random bytes for CSP nonce (16 bytes = 128 bits of entropy)
+_CSP_NONCE_BYTES = 16
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -19,6 +23,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Generate unique request ID for audit trail
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
+
+        # Generate per-request CSP nonce for inline scripts
+        csp_nonce = secrets.token_urlsafe(_CSP_NONCE_BYTES)
+        request.state.csp_nonce = csp_nonce
 
         # Bind request_id to structlog context for all downstream logging
         structlog.contextvars.bind_contextvars(request_id=request_id)
@@ -35,7 +43,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
             response.headers["Content-Security-Policy"] = (
                 "default-src 'self'; "
-                "script-src 'self'; "
+                f"script-src 'self' 'nonce-{csp_nonce}'; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data:; "
                 "font-src 'self'; "

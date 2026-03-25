@@ -13,7 +13,7 @@
     <title>{% block title %}{{ _("brand.name") }}{% endblock %}</title>
     <script src="/static/js/htmx.min.js"></script>
     <script src="/static/js/i18n.js"></script>
-    <script>window.__translations = {{ translations_json | safe }};</script>
+    <script nonce="{{ csp_nonce }}">window.__translations = {{ translations_json | safe }};</script>
     <script src="/static/js/app.js" defer></script>
     <link rel="stylesheet" href="/static/css/app.css">
     <link rel="preload" href="/static/fonts/instrument-serif-normal-latin.woff2" as="font" type="font/woff2" crossorigin>

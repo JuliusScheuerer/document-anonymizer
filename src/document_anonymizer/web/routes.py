@@ -96,15 +96,20 @@ def _template_response(
     ctx: dict[str, object] = {"lang": lang}
     if context:
         ctx.update(context)
-    # Provide all translations as JSON for client-side window.__t()
-# Only embed translations for full-page responses that include base.html
-if template_name in ("index.html", "base.html"):  # or check explicitly
-    all_translations = get_translations(lang)
-    ctx["translations_json"] = json.dumps(all_translations, ensure_ascii=False).replace(
-        "</", r"<\/"
-    )
-else:
-    ctx["translations_json"] = "{}"  # or omit entirely
+    # Provide all translations as JSON for client-side window.__t().
+    # Only full-page templates (extending base.html) need the JSON blob;
+    # HTMX fragments inherit the already-loaded window.__translations.
+    if template_name == "index.html":
+        all_translations = get_translations(lang)
+        ctx["translations_json"] = json.dumps(
+            all_translations, ensure_ascii=False
+        ).replace("</", r"<\/")
+    else:
+        ctx["translations_json"] = "{}"
+
+    # Pass CSP nonce so the inline translations <script> is allowed
+    csp_nonce: str = getattr(request.state, "csp_nonce", "")
+    ctx["csp_nonce"] = csp_nonce
 
     response = templates.TemplateResponse(
         request, template_name, ctx, status_code=status_code
