@@ -36,5 +36,10 @@ docs/vision.md
 plans/
 .claude/
 .playwright-mcp/
-# Design artifacts
-design-*.png
+# Design artifacts & screenshots (public OSS repo — keep dev artifacts out)
+*.png
+# Internal docs
+STATUS.md
+handoff.md
+# Claude worktrees
+.claude-worktrees/
